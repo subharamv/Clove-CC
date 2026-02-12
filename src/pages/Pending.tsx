@@ -4,6 +4,8 @@ import { supabase } from '../supabaseClient';
 import { getTemplateImageUrl, DEFAULT_TEMPLATE } from '../imageUtils';
 import { formatRupees } from '../utils/currencyUtils';
 import { previewVoucher, downloadVoucherPDF, VoucherData } from '../utils/settlementVoucher';
+import CalendarFilter, { DateFilterType } from '../components/CalendarFilter';
+import { formatDateToDDMMYYYY } from '../utils/dateFormatUtils';
 
 interface SettlementModal {
     visible: boolean;
@@ -22,18 +24,21 @@ interface PendingProps {
 const Pending: React.FC<PendingProps> = ({ employees, settings, onSelectCoupon, onNavigateToPrint, onRefresh }) => {
     const [templateUrl, setTemplateUrl] = useState<string>(DEFAULT_TEMPLATE);
     const [search, setSearch] = useState('');
-    const [filterStatus, setFilterStatus] = useState<CouponStatus | 'ALL'>('ALL');
     const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
     const [currentPage, setCurrentPage] = useState(1);
     const [selectedForPrint, setSelectedForPrint] = useState<Set<string>>(new Set());
     const [isPrinting, setIsPrinting] = useState(false);
     const [printReviewMode, setPrintReviewMode] = useState(false);
+    const [dateFilterType, setDateFilterType] = useState<DateFilterType>('all');
+    const [startDate, setStartDate] = useState<string>('');
+    const [endDate, setEndDate] = useState<string>('');
     const [settlementModal, setSettlementModal] = useState<SettlementModal>({
         visible: false,
         settlement: null,
         loading: false
     });
     const [previewingVoucherId, setPreviewingVoucherId] = useState<string | null>(null);
+    const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
 
     const ITEMS_PER_PAGE = viewMode === 'grid' ? 6 : 10;
 
@@ -54,16 +59,28 @@ const Pending: React.FC<PendingProps> = ({ employees, settings, onSelectCoupon, 
     // Reset to page 1 when filters change
     useEffect(() => {
         setCurrentPage(1);
-    }, [search, filterStatus]);
+    }, [search, dateFilterType, startDate, endDate]);
 
-    const pendingCoupons = employees.filter(emp => emp.status !== CouponStatus.RECEIVED);
+    const pendingCoupons = employees.filter(emp => emp.status === CouponStatus.ISSUED);
+
+    const handleDateRangeChange = (start: string, end: string, filterType: DateFilterType) => {
+        setStartDate(start);
+        setEndDate(end);
+        setDateFilterType(filterType);
+    };
 
     const filteredCoupons = pendingCoupons.filter(emp => {
         const matchesSearch = emp.name.toLowerCase().includes(search.toLowerCase()) ||
             emp.empId.toLowerCase().includes(search.toLowerCase()) ||
             emp.serialCode.toLowerCase().includes(search.toLowerCase());
-        const matchesStatus = filterStatus === 'ALL' || emp.status === filterStatus;
-        return matchesSearch && matchesStatus;
+
+        let matchesDate = true;
+        if (dateFilterType !== 'all' && startDate && endDate) {
+            const couponDate = emp.issueDate ? new Date(emp.issueDate.split('/').reverse().join('-')).toISOString().split('T')[0] : emp.created_at?.split('T')[0] || '';
+            matchesDate = couponDate >= startDate && couponDate <= endDate;
+        }
+
+        return matchesSearch && matchesDate;
     });
 
     const totalPages = Math.ceil(filteredCoupons.length / ITEMS_PER_PAGE);
@@ -255,10 +272,81 @@ const Pending: React.FC<PendingProps> = ({ employees, settings, onSelectCoupon, 
         }
     };
 
+    const deleteCoupon = async (id: string) => {
+        if (!window.confirm('Are you sure you want to delete this coupon?')) {
+            return;
+        }
+
+        try {
+            const { error } = await supabase.from('coupons').delete().eq('id', id);
+            if (error) {
+                console.error('Error deleting coupon:', error);
+                alert(`Failed to delete coupon: ${error.message || 'Unknown error'}`);
+                return;
+            }
+
+            // Refresh parent list if provided
+            if (typeof onRefresh === 'function') {
+                await onRefresh();
+            }
+        } catch (error) {
+            console.error('Unexpected error deleting coupon:', error);
+            alert(`Unexpected error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        }
+    };
+
     return (
-        <div className="flex min-h-screen bg-slate-50">
+        <div className="flex min-h-screen bg-slate-50 relative">
+            <style>{`
+                @media (max-width: 1023px) {
+                    [data-main-content] {
+                        padding-right: 1.5rem !important;
+                        padding-left: 1.5rem !important;
+                        padding-top: ${selectedForPrint.size > 0 ? (sidebarCollapsed ? '160px' : '500px') : '2rem'} !important;
+                    }
+                    [data-print-sidebar] {
+                        width: 100% !important;
+                        height: auto !important;
+                        max-height: 80vh !important;
+                        top: 64px !important;
+                        left: 0 !important;
+                        right: 0 !important;
+                        bottom: auto !important;
+                        border-left: none !important;
+                        border-bottom: 1px solid #e2e8f0 !important;
+                        transform: translateY(${selectedForPrint.size > 0 ? '0' : '-120%'}) !important;
+                        z-index: 40;
+                    }
+                }
+                @media (max-width: 500px) {
+                    [data-print-sidebar] {
+                        position: fixed !important;
+                        top: 0 !important;
+                        left: 0 !important;
+                        right: 0 !important;
+                        width: 100% !important;
+                        height: auto !important;
+                        max-height: 60vh !important;
+                        transform: translateY(${selectedForPrint.size > 0 ? '0' : '-120%'}) !important;
+                        border-left: none !important;
+                        border-bottom: 1px solid #e2e8f0 !important;
+                        z-index: 60;
+                    }
+                }
+                @media (max-width: 640px) {
+                    .mobile-hide { display: none !important; }
+                    .mobile-only { display: table-row !important; }
+                    th, td { padding-left: 0.5rem !important; padding-right: 0.5rem !important; }
+                    .select-cell { width: 48px; }
+                    .employee-cell { width: 60%; }
+                    .amount-cell { width: 20%; }
+                    .action-cell { width: 20%; }
+                }
+                .mobile-only { display: none; }
+            `}</style>
+
             {/* Main Content */}
-            <div className={`flex-1 p-8 transition-all duration-300 ${selectedForPrint.size > 0 ? 'pr-96' : ''}`}>
+            <div data-main-content className={`flex-1 p-8 transition-all duration-300 ${selectedForPrint.size > 0 ? 'lg:pr-96' : ''}`}>
                 <div className="max-w-7xl mx-auto">
                     <header className="mb-8">
                         <h1 className="text-3xl font-bold text-slate-900">Pending Coupons</h1>
@@ -274,8 +362,8 @@ const Pending: React.FC<PendingProps> = ({ employees, settings, onSelectCoupon, 
                     ) : (
                         <>
                             {/* Search and Filter */}
-                            <div className="mb-8 flex flex-col md:flex-row gap-4 bg-white p-6 rounded-2xl border border-slate-200">
-                                <div className="flex-1">
+                            <div className="mb-8 flex flex-col gap-4 bg-white p-4 md:p-6 rounded-2xl border border-slate-200">
+                                <div className="w-full">
                                     <label className="block text-sm font-semibold text-slate-700 mb-2">Search</label>
                                     <div className="relative">
                                         <span className="absolute inset-y-0 left-0 flex items-center pl-3">
@@ -290,45 +378,38 @@ const Pending: React.FC<PendingProps> = ({ employees, settings, onSelectCoupon, 
                                         />
                                     </div>
                                 </div>
-                                <div>
-                                    <label className="block text-sm font-semibold text-slate-700 mb-2">Status</label>
-                                    <select
-                                        className="w-full px-3 py-2 border border-slate-200 bg-slate-50 rounded-xl text-sm focus:ring-orange-500 focus:border-orange-500 transition"
-                                        value={filterStatus}
-                                        onChange={(e) => setFilterStatus(e.target.value as CouponStatus | 'ALL')}
-                                    >
-                                        <option value="ALL">All Status</option>
-                                        <option value={CouponStatus.PENDING}>Pending</option>
-                                        <option value={CouponStatus.READY}>Ready</option>
-                                        <option value={CouponStatus.ISSUED}>Issued</option>
-                                    </select>
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-semibold text-slate-700 mb-2">View</label>
-                                    <div className="flex gap-2 h-10">
-                                        <button
-                                            onClick={() => setViewMode('grid')}
-                                            className={`px-4 py-2 rounded-xl text-sm font-semibold transition ${viewMode === 'grid'
-                                                ? 'bg-orange-500 text-white'
-                                                : 'bg-slate-50 text-slate-700 border border-slate-200 hover:bg-slate-100'
-                                                }`}
-                                        >
-                                            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M3 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V4zM3 10a1 1 0 011-1h12a1 1 0 011 1v6a1 1 0 01-1 1H4a1 1 0 01-1-1v-6z"></path></svg>
-                                        </button>
-                                        <button
-                                            onClick={() => setViewMode('list')}
-                                            className={`px-4 py-2 rounded-xl text-sm font-semibold transition ${viewMode === 'list'
-                                                ? 'bg-orange-500 text-white'
-                                                : 'bg-slate-50 text-slate-700 border border-slate-200 hover:bg-slate-100'
-                                                }`}
-                                        >
-                                            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M3 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V4zM3 10a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H4a1 1 0 01-1-1v-6z"></path></svg>
-                                        </button>
+                                <div className="flex flex-col sm:flex-row gap-4">
+                                    <div className="flex-1 min-w-0">
+                                        <label className="block text-sm font-semibold text-slate-700 mb-2">Calendar Filter</label>
+                                        <CalendarFilter onDateRangeChange={handleDateRangeChange} />
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-sm font-semibold text-slate-700 mb-2">View</label>
+                                        <div className="flex gap-2 h-10">
+                                            <button
+                                                onClick={() => setViewMode('grid')}
+                                                className={`px-3 py-2 rounded-xl text-sm font-semibold transition ${viewMode === 'grid'
+                                                    ? 'bg-orange-500 text-white'
+                                                    : 'bg-slate-50 text-slate-700 border border-slate-200 hover:bg-slate-100'
+                                                    }`}
+                                            >
+                                                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M3 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V4zM3 10a1 1 0 011-1h12a1 1 0 011 1v6a1 1 0 01-1 1H4a1 1 0 01-1-1v-6z"></path></svg>
+                                            </button>
+                                            <button
+                                                onClick={() => setViewMode('list')}
+                                                className={`px-3 py-2 rounded-xl text-sm font-semibold transition ${viewMode === 'list'
+                                                    ? 'bg-orange-500 text-white'
+                                                    : 'bg-slate-50 text-slate-700 border border-slate-200 hover:bg-slate-100'
+                                                    }`}
+                                            >
+                                                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M3 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V4zM3 10a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H4a1 1 0 01-1-1v-6z"></path></svg>
+                                            </button>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
 
-                            {/* Coupons Grid or List */}
                             {filteredCoupons.length === 0 ? (
                                 <div className="bg-white rounded-2xl border border-slate-200 p-12 text-center">
                                     <svg className="w-16 h-16 mx-auto text-slate-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"></path></svg>
@@ -336,7 +417,7 @@ const Pending: React.FC<PendingProps> = ({ employees, settings, onSelectCoupon, 
                                     <p className="text-slate-300 text-sm mt-1">Adjust your filters to see more coupons.</p>
                                 </div>
                             ) : viewMode === 'grid' ? (
-                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
                                     {paginatedCoupons.map(emp => (
                                         <div
                                             key={emp.id}
@@ -362,18 +443,29 @@ const Pending: React.FC<PendingProps> = ({ employees, settings, onSelectCoupon, 
                                                             e.stopPropagation();
                                                             toggleSelectForPrint(emp.id);
                                                         }}
-                                                        className={`px-3 py-1 rounded-lg text-[9px] font-bold uppercase tracking-wider transition ${selectedForPrint.has(emp.id)
-                                                            ? 'bg-blue-500 text-white'
-                                                            : 'bg-amber-500 text-white hover:bg-blue-500'
+                                                        className={`px-2 py-0.5 rounded-lg text-[9px] font-bold uppercase tracking-wider transition ${selectedForPrint.has(emp.id)
+                                                            ? 'bg-blue-600 text-white shadow-md'
+                                                            : 'bg-white/90 text-slate-700 hover:bg-blue-500 hover:text-white backdrop-blur-sm'
                                                             }`}
                                                     >
                                                         {selectedForPrint.has(emp.id) ? '✓ Selected' : emp.status}
                                                     </button>
+                                                    <button
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            deleteCoupon(emp.id);
+                                                        }}
+                                                        title="Delete coupon"
+                                                        className="p-1.5 bg-red-500/90 hover:bg-red-600 text-white rounded-lg transition shadow-sm backdrop-blur-sm"
+                                                    >
+                                                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"></path>
+                                                        </svg>
+                                                    </button>
                                                 </div>
                                             </div>
 
-                                            {/* Details */}
-                                            <div className="p-6 space-y-4">
+                                            <div className="p-4 space-y-3">
                                                 <div>
                                                     <p className="text-xs text-slate-400 uppercase font-bold tracking-widest">Employee</p>
                                                     <p className="text-lg font-bold text-slate-900">{emp.name}</p>
@@ -386,50 +478,78 @@ const Pending: React.FC<PendingProps> = ({ employees, settings, onSelectCoupon, 
                                                     </div>
                                                     <div>
                                                         <p className="text-xs text-slate-400 uppercase font-bold tracking-widest">Amount</p>
-                                                        <p className="text-sm font-bold text-emerald-600">{formatRupees(emp.amount)}</p>
+                                                        <p className="text-sm font-mono text-emerald-600">{formatRupees(emp.amount)}</p>
                                                     </div>
                                                 </div>
 
-                                                <div>
-                                                    <p className="text-xs text-slate-400 uppercase font-bold tracking-widest">Issue Date</p>
-                                                    <p className="text-sm font-mono text-slate-700">{emp.issueDate}</p>
+                                                <div className="grid grid-cols-2 gap-4">
+                                                    <div>
+                                                        <p className="text-xs text-slate-400 uppercase font-bold tracking-widest">Issue Date</p>
+                                                        <p className="text-sm font-mono text-slate-700">{emp.issueDate}</p>
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-xs text-slate-400 uppercase font-bold tracking-widest">Valid Till</p>
+                                                        <p className="text-sm font-mono text-slate-700">{emp.validTill || 'N/A'}</p>
+                                                    </div>
                                                 </div>
 
                                                 {/* Action Buttons */}
-                                                <div className="flex gap-2 pt-4 border-t border-amber-100">
-                                                    {emp.status === CouponStatus.SETTLED && emp.settlement_id ? (
-                                                        <>
-                                                            <button
-                                                                onClick={(e) => {
-                                                                    e.stopPropagation();
-                                                                    fetchSettlementDetails(emp.settlement_id!);
-                                                                }}
-                                                                className="flex-1 py-2 px-3 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-xs font-bold uppercase tracking-wider transition"
-                                                                title="View settlement voucher"
-                                                            >
-                                                                View Voucher
-                                                            </button>
-                                                        </>
-                                                    ) : (
-                                                        <>
-                                                            <button
-                                                                onClick={(e) => {
-                                                                    e.stopPropagation();
-                                                                    markReceived(emp.id);
-                                                                }}
-                                                                className="flex-1 py-2 px-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold uppercase tracking-wider transition"
-                                                            >
-                                                                ✓ Mark Received
-                                                            </button>
-                                                            <button
-                                                                onClick={() => onSelectCoupon(emp)}
-                                                                className="flex-1 py-2 px-3 bg-amber-100 hover:bg-amber-200 border border-amber-300 text-amber-700 rounded-lg text-xs font-bold uppercase tracking-wider transition"
-                                                            >
-                                                                View Details
-                                                            </button>
-                                                        </>
-                                                    )}
+                                                <div className="flex items-center justify-between pt-4 border-t border-amber-100">
+                                                    <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${emp.status === CouponStatus.READY ? 'bg-amber-100 text-amber-700' :
+                                                        emp.status === CouponStatus.ISSUED ? 'bg-blue-100 text-blue-700' :
+                                                            emp.status === CouponStatus.SETTLED ? 'bg-purple-100 text-purple-700' :
+                                                                'bg-slate-100 text-slate-700'
+                                                        }`}>
+                                                        {emp.status}
+                                                    </span>
+                                                    <div className="flex gap-1">
+                                                        {emp.status === CouponStatus.SETTLED && emp.settlement_id ? (
+                                                            <>
+                                                                <button
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        fetchSettlementDetails(emp.settlement_id!);
+                                                                    }}
+                                                                    title="View settlement voucher"
+                                                                    className="p-2 bg-purple-100 hover:bg-purple-200 text-purple-700 rounded-lg transition text-xs"
+                                                                >
+                                                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"></path><path d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"></path></svg>
+                                                                </button>
+                                                            </>
+                                                        ) : (
+                                                            <>
+                                                                <button
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        markReceived(emp.id);
+                                                                    }}
+                                                                    title="Mark as received"
+                                                                    className="p-2 bg-emerald-100 hover:bg-emerald-200 text-emerald-700 rounded-lg transition text-xs"
+                                                                >
+                                                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"></path></svg>
+                                                                </button>
+                                                                <button
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        deleteCoupon(emp.id);
+                                                                    }}
+                                                                    title="Delete coupon"
+                                                                    className="p-2 bg-red-100 hover:bg-red-200 text-red-700 rounded-lg transition text-xs"
+                                                                >
+                                                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"></path></svg>
+                                                                </button>
+                                                            </>
+                                                        )}
+                                                    </div>
                                                 </div>
+
+                                                {/* View Details Link */}
+                                                <button
+                                                    onClick={() => onSelectCoupon(emp)}
+                                                    className="w-full mt-2 py-2 px-3 bg-orange-50 hover:bg-orange-100 border border-orange-200 text-orange-700 rounded-xl text-xs font-bold uppercase tracking-wider transition"
+                                                >
+                                                    View & Print Details →
+                                                </button>
                                             </div>
                                         </div>
                                     ))}
@@ -440,95 +560,156 @@ const Pending: React.FC<PendingProps> = ({ employees, settings, onSelectCoupon, 
                                         <table className="w-full">
                                             <thead className="bg-slate-50 border-b border-slate-200">
                                                 <tr>
-                                                    <th className="px-6 py-3 text-center">
+                                                    <th className="px-6 py-3 text-center select-cell">
                                                         <button
                                                             onClick={toggleSelectAll}
                                                             title={selectedForPrint.size === paginatedCoupons.length ? "Deselect All" : "Select All"}
-                                                            className={`px-3 py-2 rounded-lg text-xs font-bold transition ${selectedForPrint.size === paginatedCoupons.length && paginatedCoupons.length > 0
+                                                            className={`w-5 h-5 flex items-center justify-center rounded-md text-[8px] font-bold transition mx-auto ${selectedForPrint.size === paginatedCoupons.length && paginatedCoupons.length > 0
                                                                 ? 'bg-blue-500 text-white'
                                                                 : 'bg-slate-100 text-slate-700 hover:bg-blue-100'
                                                                 }`}
                                                         >
-                                                            {selectedForPrint.size === paginatedCoupons.length && paginatedCoupons.length > 0 ? '✓' : '○'}
+                                                            {selectedForPrint.size === paginatedCoupons.length && paginatedCoupons.length > 0 ? (
+                                                                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7" strokeLinecap="round" strokeLinejoin="round" strokeWidth="3"></path></svg>
+                                                            ) : (
+                                                                <div className="w-2 h-2 rounded-full border border-slate-400"></div>
+                                                            )}
                                                         </button>
                                                     </th>
-                                                    <th className="px-6 py-3 text-left text-xs font-bold text-slate-700 uppercase tracking-wider">Employee</th>
-                                                    <th className="px-6 py-3 text-left text-xs font-bold text-slate-700 uppercase tracking-wider">Emp ID</th>
-                                                    <th className="px-6 py-3 text-left text-xs font-bold text-slate-700 uppercase tracking-wider">Serial</th>
-                                                    <th className="px-6 py-3 text-right text-xs font-bold text-slate-700 uppercase tracking-wider">Amount</th>
-                                                    <th className="px-6 py-3 text-left text-xs font-bold text-slate-700 uppercase tracking-wider">Issue Date</th>
-                                                    <th className="px-6 py-3 text-center text-xs font-bold text-slate-700 uppercase tracking-wider">Status</th>
-                                                    <th className="px-6 py-3 text-center text-xs font-bold text-slate-700 uppercase tracking-wider">Actions</th>
+                                                    <th className="px-6 py-3 text-left text-xs font-bold text-slate-700 uppercase tracking-wider employee-cell">Employee</th>
+                                                    <th className="px-6 py-3 text-left text-xs font-bold text-slate-700 uppercase tracking-wider mobile-hide">Emp ID</th>
+                                                    <th className="px-6 py-3 text-left text-xs font-bold text-slate-700 uppercase tracking-wider mobile-hide">Serial</th>
+                                                    <th className="px-6 py-3 text-right text-xs font-bold text-slate-700 uppercase tracking-wider amount-cell">Amount</th>
+                                                    <th className="px-6 py-3 text-left text-xs font-bold text-slate-700 uppercase tracking-wider mobile-hide">Issue Date</th>
+                                                    <th className="px-6 py-3 text-left text-xs font-bold text-slate-700 uppercase tracking-wider mobile-hide">Valid Till</th>
+                                                    <th className="px-6 py-3 text-center text-xs font-bold text-slate-700 uppercase tracking-wider mobile-hide">Status</th>
+                                                    <th className="px-6 py-3 text-center text-xs font-bold text-slate-700 uppercase tracking-wider action-cell">Actions</th>
                                                 </tr>
                                             </thead>
                                             <tbody className="divide-y divide-slate-200">
                                                 {paginatedCoupons.map(emp => (
-                                                    <tr key={emp.id} className={`hover:bg-slate-50 transition ${selectedForPrint.has(emp.id) ? 'bg-blue-50' : ''}`}>
-                                                        <td className="px-6 py-4 text-center">
-                                                            <button
-                                                                onClick={(e) => {
-                                                                    e.stopPropagation();
-                                                                    toggleSelectForPrint(emp.id);
-                                                                }}
-                                                                className={`px-3 py-2 rounded-lg text-xs font-bold transition ${selectedForPrint.has(emp.id)
-                                                                    ? 'bg-blue-500 text-white'
-                                                                    : 'bg-slate-100 text-slate-700 hover:bg-blue-100'
-                                                                    }`}
-                                                            >
-                                                                {selectedForPrint.has(emp.id) ? '✓' : '○'}
-                                                            </button>
-                                                        </td>
-                                                        <td className="px-6 py-4">
-                                                            <button onClick={() => onSelectCoupon(emp)} className="font-semibold text-slate-900 hover:text-orange-600 transition">
-                                                                {emp.name}
-                                                            </button>
-                                                        </td>
-                                                        <td className="px-6 py-4 text-sm font-mono text-slate-700">{emp.empId}</td>
-                                                        <td className="px-6 py-4 text-sm font-mono text-slate-700">{emp.serialCode}</td>
-                                                        <td className="px-6 py-4 text-sm font-bold text-emerald-600 text-right">{formatRupees(emp.amount)}</td>
-                                                        <td className="px-6 py-4 text-sm text-slate-600">{emp.issueDate}</td>
-                                                        <td className="px-6 py-4 text-center">
-                                                            <span className={`inline-block px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${emp.status === CouponStatus.READY ? 'bg-amber-100 text-amber-700' :
-                                                                emp.status === CouponStatus.ISSUED ? 'bg-blue-100 text-blue-700' :
-                                                                    emp.status === CouponStatus.SETTLED ? 'bg-purple-100 text-purple-700' :
-                                                                        'bg-slate-100 text-slate-700'
-                                                                }`}>
-                                                                {emp.status}
-                                                            </span>
-                                                        </td>
-                                                        <td className="px-6 py-4 text-center">
-                                                            <div className="flex gap-2 justify-center">
-                                                                {emp.status === CouponStatus.SETTLED && emp.settlement_id ? (
-                                                                    <>
-                                                                        <button
-                                                                            onClick={() => fetchSettlementDetails(emp.settlement_id!)}
-                                                                            title="View settlement voucher"
-                                                                            className="px-3 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition text-xs font-semibold"
-                                                                        >
-                                                                            View Voucher
-                                                                        </button>
-                                                                    </>
-                                                                ) : (
-                                                                    <>
-                                                                        <button
-                                                                            onClick={() => markReceived(emp.id)}
-                                                                            title="Mark as received"
-                                                                            className="px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg transition text-xs font-semibold"
-                                                                        >
-                                                                            Mark Received
-                                                                        </button>
-                                                                        <button
-                                                                            onClick={() => onSelectCoupon(emp)}
-                                                                            title="View details"
-                                                                            className="px-3 py-2 bg-amber-100 hover:bg-amber-200 text-amber-700 rounded-lg transition text-xs font-semibold border border-amber-300"
-                                                                        >
-                                                                            Details
-                                                                        </button>
-                                                                    </>
-                                                                )}
-                                                            </div>
-                                                        </td>
-                                                    </tr>
+                                                    <React.Fragment key={emp.id}>
+                                                        <tr className={`hover:bg-slate-50 transition ${selectedForPrint.has(emp.id) ? 'bg-blue-50' : ''}`}>
+                                                            <td className="px-6 py-4 text-center select-cell">
+                                                                <button
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        toggleSelectForPrint(emp.id);
+                                                                    }}
+                                                                    className={`w-5 h-5 flex items-center justify-center rounded-md text-[8px] font-bold transition mx-auto ${selectedForPrint.has(emp.id)
+                                                                        ? 'bg-blue-500 text-white'
+                                                                        : 'bg-slate-100 text-slate-700 hover:bg-blue-100'
+                                                                        }`}
+                                                                >
+                                                                    {selectedForPrint.has(emp.id) ? (
+                                                                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7" strokeLinecap="round" strokeLinejoin="round" strokeWidth="3"></path></svg>
+                                                                    ) : (
+                                                                        <div className="w-2 h-2 rounded-full border border-slate-400"></div>
+                                                                    )}
+                                                                </button>
+                                                            </td>
+                                                            <td className="px-6 py-4 employee-cell">
+                                                                <button onClick={() => onSelectCoupon(emp)} className="font-semibold text-slate-900 hover:text-orange-600 transition truncate block w-full text-left">
+                                                                    {emp.name}
+                                                                </button>
+                                                            </td>
+                                                            <td className="px-6 py-4 text-sm font-bold font-mono text-slate-900 mobile-hide">{emp.empId}</td>
+                                                            <td className="px-6 py-4 text-sm font-bold font-mono text-slate-900 mobile-hide">{emp.serialCode}</td>
+                                                            <td className="px-6 py-4 text-sm font-bold text-emerald-600 text-right amount-cell">{formatRupees(emp.amount)}</td>
+                                                            <td className="px-6 py-4 text-sm font-bold text-slate-900 mobile-hide">{formatDateToDDMMYYYY(emp.issueDate)}</td>
+                                                            <td className="px-6 py-4 text-sm text-slate-600 mobile-hide">{emp.validTill ? formatDateToDDMMYYYY(emp.validTill) : 'N/A'}</td>
+                                                            <td className="px-6 py-4 text-center mobile-hide">
+                                                                <span className={`inline-block px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${emp.status === CouponStatus.READY ? 'bg-amber-100 text-amber-700' :
+                                                                    emp.status === CouponStatus.ISSUED ? 'bg-blue-100 text-blue-700' :
+                                                                        emp.status === CouponStatus.SETTLED ? 'bg-purple-100 text-purple-700' :
+                                                                            'bg-slate-100 text-slate-700'
+                                                                    }`}>
+                                                                    {emp.status}
+                                                                </span>
+                                                            </td>
+                                                            <td className="px-6 py-4 text-center action-cell">
+                                                                <div className="flex gap-2 justify-center">
+                                                                    {emp.status === CouponStatus.SETTLED && emp.settlement_id ? (
+                                                                        <>
+                                                                            <button
+                                                                                onClick={(e) => {
+                                                                                    e.stopPropagation();
+                                                                                    fetchSettlementDetails(emp.settlement_id!);
+                                                                                }}
+                                                                                title="View settlement voucher"
+                                                                                className="p-2 bg-purple-50 hover:bg-purple-100 text-purple-600 rounded-full transition border border-purple-100 shadow-sm"
+                                                                            >
+                                                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"></path><path d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"></path></svg>
+                                                                            </button>
+                                                                        </>
+                                                                    ) : (
+                                                                        <>
+                                                                            <button
+                                                                                onClick={(e) => {
+                                                                                    e.stopPropagation();
+                                                                                    markReceived(emp.id);
+                                                                                }}
+                                                                                title="Mark Received"
+                                                                                className="p-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-600 rounded-full transition border border-emerald-100 shadow-sm"
+                                                                            >
+                                                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5"></path></svg>
+                                                                            </button>
+                                                                            <button
+                                                                                onClick={(e) => {
+                                                                                    e.stopPropagation();
+                                                                                    deleteCoupon(emp.id);
+                                                                                }}
+                                                                                title="Delete coupon"
+                                                                                className="p-2 bg-red-50 hover:bg-red-100 text-red-600 rounded-full transition border border-red-100 shadow-sm"
+                                                                            >
+                                                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"></path></svg>
+                                                                            </button>
+                                                                        </>
+                                                                    )}
+                                                                </div>
+                                                            </td>
+                                                        </tr>
+                                                        <tr className={`mobile-only`}>
+                                                            <td colSpan={100} className="px-0 py-3">
+                                                                <div className={`bg-white rounded-lg border overflow-hidden mx-4 hover:border-slate-300 transition ${selectedForPrint.has(emp.id) ? 'border-blue-400 bg-blue-50' : 'border-slate-200'
+                                                                    }`}>
+                                                                    {/* Card Header - Minimal */}
+                                                                    <div className="px-3 py-2 border-b border-slate-100 flex justify-between items-center gap-2">
+                                                                        <div className="flex-1 min-w-0">
+                                                                            <p className="text-xs text-slate-500">Emp ID: <span className="font-semibold text-slate-700">{emp.empId}</span></p>
+                                                                        </div>
+                                                                        <div className="flex-shrink-0 flex items-center gap-1">
+                                                                            <span className={`flex-shrink-0 text-[9px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider whitespace-nowrap ${emp.status === CouponStatus.READY ? 'bg-amber-100 text-amber-700' :
+                                                                                emp.status === CouponStatus.ISSUED ? 'bg-blue-100 text-blue-700' :
+                                                                                    emp.status === CouponStatus.SETTLED ? 'bg-purple-100 text-purple-700' :
+                                                                                        'bg-slate-100 text-slate-700'
+                                                                                }`}>
+                                                                                {emp.status}
+                                                                            </span>
+                                                                        </div>
+                                                                    </div>
+
+                                                                    {/* Card Details - Minimal */}
+                                                                    <div className="p-3 space-y-2">
+                                                                        <div className="grid grid-cols-3 gap-2 text-xs">
+                                                                            <div>
+                                                                                <p className="text-slate-500">Serial</p>
+                                                                                <p className="font-semibold text-slate-800">{emp.serialCode}</p>
+                                                                            </div>
+                                                                            <div>
+                                                                                <p className="text-slate-500">Issued</p>
+                                                                                <p className="font-semibold text-slate-700">{formatDateToDDMMYYYY(emp.issueDate)}</p>
+                                                                            </div>
+                                                                            <div>
+                                                                                <p className="text-slate-500">Valid</p>
+                                                                                <p className="font-semibold text-slate-700">{emp.validTill ? formatDateToDDMMYYYY(emp.validTill) : 'N/A'}</p>
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            </td>
+                                                        </tr>
+                                                    </React.Fragment>
                                                 ))}
                                             </tbody>
                                         </table>
@@ -551,7 +732,7 @@ const Pending: React.FC<PendingProps> = ({ employees, settings, onSelectCoupon, 
                                                 : 'bg-orange-500 hover:bg-orange-600 text-white'
                                                 }`}
                                         >
-                                            ← Previous
+                                            ←
                                         </button>
                                         <div className="flex items-center gap-1">
                                             {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
@@ -575,7 +756,7 @@ const Pending: React.FC<PendingProps> = ({ employees, settings, onSelectCoupon, 
                                                 : 'bg-orange-500 hover:bg-orange-600 text-white'
                                                 }`}
                                         >
-                                            Next →
+                                            →
                                         </button>
                                     </div>
                                 </div>
@@ -593,7 +774,7 @@ const Pending: React.FC<PendingProps> = ({ employees, settings, onSelectCoupon, 
                                         <p className="text-3xl font-bold text-amber-700">{formatRupees(filteredCoupons.reduce((sum, emp) => sum + emp.amount, 0), 0)}</p>
                                     </div>
                                     <div>
-                                        <p className="text-xs text-slate-600 uppercase font-bold tracking-widest mb-1">Action Needed</p>
+                                        <p className="text-xs text-slate-600 uppercase font-bold tracking-wider mb-1">Action Needed</p>
                                         <p className="text-lg font-semibold text-slate-700">Mark each as received to complete</p>
                                     </div>
                                 </div>
@@ -601,30 +782,28 @@ const Pending: React.FC<PendingProps> = ({ employees, settings, onSelectCoupon, 
                         </>
                     )}
                 </div>
-
-                {/* Floating Print Queue Button */}
-                {selectedForPrint.size > 0 && (
-                    <button
-                        onClick={() => document.querySelector('[data-print-sidebar]')?.scrollIntoView()}
-                        className="fixed bottom-8 right-8 z-40 flex items-center gap-3 px-6 py-4 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white font-bold rounded-full shadow-2xl transition-all hover:shadow-3xl hover:scale-110 animate-pulse"
-                        title="Open print queue"
-                    >
-                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4H9a2 2 0 01-2-2v-4a2 2 0 012-2h6a2 2 0 012 2v4a2 2 0 01-2 2zm-6-4h.01M12 8v.01M15 8v.01" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"></path></svg>
-                        <span className="text-lg font-bold">{selectedForPrint.size}</span>
-                        <span className="hidden sm:inline">Ready to Print</span>
-                    </button>
-                )}
             </div>
 
             {/* Print Selection Sidebar */}
-            <div data-print-sidebar className={`fixed right-0 top-0 h-screen w-96 bg-white border-l border-slate-200 shadow-2xl overflow-y-auto transition-transform duration-300 ${selectedForPrint.size > 0 ? 'translate-x-0' : 'translate-x-full'
-                }`}>
-                <div className="sticky top-0 bg-gradient-to-r from-orange-500 to-orange-600 text-white p-6 border-b border-orange-600">
-                    <h2 className="text-xl font-bold mb-2">Print Queue</h2>
-                    <p className="text-orange-100 text-sm">{selectedForPrint.size} coupon{selectedForPrint.size !== 1 ? 's' : ''} selected</p>
+            <div data-print-sidebar className={`fixed right-0 top-0 h-screen w-96 bg-white border-l border-slate-200 shadow-2xl overflow-y-auto transition-transform duration-300 ${selectedForPrint.size > 0 ? 'translate-x-0' : 'translate-x-full'}`}>
+                <div className="sticky top-0 bg-gradient-to-r from-orange-500 to-orange-600 text-white p-6 border-b border-orange-600 z-10 flex justify-between items-center">
+                    <div>
+                        <h2 className="text-xl font-bold">Print Queue</h2>
+                        <p className="text-orange-100 text-sm">{selectedForPrint.size} coupon{selectedForPrint.size !== 1 ? 's' : ''} selected</p>
+                    </div>
+                    <button
+                        onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+                        className="lg:hidden p-2 bg-white/20 rounded-lg hover:bg-white/30 transition"
+                    >
+                        {sidebarCollapsed ? (
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M19 9l-7 7-7-7" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"></path></svg>
+                        ) : (
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M5 15l7-7 7 7" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"></path></svg>
+                        )}
+                    </button>
                 </div>
 
-                <div className="p-6 space-y-4">
+                <div className={`p-6 space-y-4 ${sidebarCollapsed ? 'hidden lg:block' : 'block'}`}>
                     {getSelectedCoupons().length === 0 ? (
                         <div className="text-center py-12 text-slate-400">
                             <svg className="w-12 h-12 mx-auto mb-3 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"></path></svg>
@@ -643,10 +822,10 @@ const Pending: React.FC<PendingProps> = ({ employees, settings, onSelectCoupon, 
                                             </div>
                                             <button
                                                 onClick={() => toggleSelectForPrint(emp.id)}
-                                                className="p-1 hover:bg-orange-200 rounded transition text-orange-600"
+                                                className="p-2 hover:bg-orange-200 rounded transition text-orange-600"
                                                 title="Remove from print queue"
                                             >
-                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M6 18L18 6M6 6l12 12" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"></path></svg>
+                                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M6 18L18 6M6 6l12 12" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"></path></svg>
                                             </button>
                                         </div>
                                     </div>
@@ -668,18 +847,27 @@ const Pending: React.FC<PendingProps> = ({ employees, settings, onSelectCoupon, 
 
                                 {/* Action Buttons */}
                                 <div className="space-y-3">
-                                    <button
-                                        onClick={handleBulkMarkReceived}
-                                        disabled={isPrinting || selectedForPrint.size === 0}
-                                        className="w-full py-3 px-4 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 text-white font-bold rounded-lg transition shadow-md disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                                    >
-                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"></path></svg>
-                                        Mark Received
-                                    </button>
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <button
+                                            onClick={handleBulkMarkReceived}
+                                            disabled={isPrinting || selectedForPrint.size === 0}
+                                            className="py-3 px-4 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 text-white font-bold rounded-lg transition shadow-md disabled:cursor-not-allowed flex items-center justify-center"
+                                            title="Mark Received"
+                                        >
+                                            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"></path></svg>
+                                        </button>
+                                        <button
+                                            onClick={() => setSelectedForPrint(new Set())}
+                                            className="py-3 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-lg transition flex items-center justify-center"
+                                            title="Clear Selection"
+                                        >
+                                            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M6 18L18 6M6 6l12 12" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"></path></svg>
+                                        </button>
+                                    </div>
                                     <button
                                         onClick={handleBatchPrint}
                                         disabled={isPrinting || selectedForPrint.size === 0}
-                                        className="w-full py-3 px-4 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 disabled:from-slate-300 disabled:to-slate-300 text-white font-bold rounded-lg transition shadow-md disabled:cursor-not-allowed"
+                                        className="w-full py-3 px-4 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 disabled:from-slate-300 disabled:to-slate-300 text-white font-bold rounded-lg transition shadow-md disabled:cursor-not-allowed flex items-center justify-center"
                                     >
                                         {isPrinting ? (
                                             <>
@@ -688,20 +876,15 @@ const Pending: React.FC<PendingProps> = ({ employees, settings, onSelectCoupon, 
                                             </>
                                         ) : (
                                             <>
-                                                <svg className="w-4 h-4 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4H9a2 2 0 01-2-2v-4a2 2 0 012-2h6a2 2 0 012 2v4a2 2 0 01-2 2zm-6-4h.01M12 8v.01M15 8v.01" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"></path></svg>
+                                                <svg className="w-5 h-5 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4H9a2 2 0 01-2-2v-4a2 2 0 012-2h6a2 2 0 012 2v4a2 2 0 01-2 2zm-6-4h.01M12 8v.01M15 8v.01" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"></path></svg>
                                                 Print Selected
                                             </>
                                         )}
                                     </button>
-                                    <button
-                                        onClick={() => setSelectedForPrint(new Set())}
-                                        className="w-full py-2 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-lg transition"
-                                    >
-                                        Clear Selection
-                                    </button>
                                 </div>
                             </div>
                         </>
+
                     )}
                 </div>
             </div>

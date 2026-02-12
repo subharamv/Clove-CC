@@ -5,6 +5,7 @@ import { getTemplateImageUrl, DEFAULT_TEMPLATE } from '../imageUtils';
 import { formatRupees } from '../utils/currencyUtils';
 import { previewVoucher, downloadVoucherPDF, VoucherData } from '../utils/settlementVoucher';
 import CalendarFilter, { DateFilterType } from '../components/CalendarFilter';
+import { formatDateToDDMMYYYY } from '../utils/dateFormatUtils';
 
 interface SettlementModal {
     visible: boolean;
@@ -37,6 +38,7 @@ const IssuedHistory: React.FC<IssuedHistoryProps> = ({ employees, settings, onSe
         loading: false
     });
     const [previewingVoucherId, setPreviewingVoucherId] = useState<string | null>(null);
+    const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
 
     const ITEMS_PER_PAGE = viewMode === 'grid' ? 6 : 10;
 
@@ -309,9 +311,57 @@ const IssuedHistory: React.FC<IssuedHistoryProps> = ({ employees, settings, onSe
     };
 
     return (
-        <div className="flex min-h-screen bg-slate-50">
+        <div className="flex min-h-screen bg-slate-50 relative">
+            <style>{`
+                @media (max-width: 1023px) {
+                    [data-main-content] {
+                        padding-right: 1.5rem !important;
+                        padding-left: 1.5rem !important;
+                        padding-top: ${selectedForPrint.size > 0 ? (sidebarCollapsed ? '160px' : '500px') : '2rem'} !important;
+                    }
+                    [data-print-sidebar] {
+                        width: 100% !important;
+                        height: auto !important;
+                        max-height: 80vh !important;
+                        top: 64px !important;
+                        left: 0 !important;
+                        right: 0 !important;
+                        bottom: auto !important;
+                        border-left: none !important;
+                        border-bottom: 1px solid #e2e8f0 !important;
+                        transform: translateY(${selectedForPrint.size > 0 ? '0' : '-120%'}) !important;
+                        z-index: 40;
+                    }
+                }
+                @media (max-width: 500px) {
+                    [data-print-sidebar] {
+                        position: fixed !important;
+                        top: 0 !important;
+                        left: 0 !important;
+                        right: 0 !important;
+                        width: 100% !important;
+                        height: auto !important;
+                        max-height: 60vh !important;
+                        transform: translateY(${selectedForPrint.size > 0 ? '0' : '-120%'}) !important;
+                        border-left: none !important;
+                        border-bottom: 1px solid #e2e8f0 !important;
+                        z-index: 60;
+                    }
+                }
+                @media (max-width: 640px) {
+                    .mobile-hide { display: none !important; }
+                    .mobile-only { display: table-row !important; }
+                    th, td { padding-left: 0.5rem !important; padding-right: 0.5rem !important; }
+                    .select-cell { width: 48px; }
+                    .employee-cell { width: 60%; }
+                    .amount-cell { width: 20%; }
+                    .action-cell { width: 20%; }
+                }
+                .mobile-only { display: none; }
+            `}</style>
+
             {/* Main Content */}
-            <div className={`flex-1 p-8 transition-all duration-300 ${selectedForPrint.size > 0 ? 'pr-96' : ''}`}>
+            <div data-main-content className={`flex-1 p-8 transition-all duration-300 ${selectedForPrint.size > 0 ? 'lg:pr-96' : ''}`}>
                 <div className="max-w-7xl mx-auto">
                     <header className="mb-8">
                         <h1 className="text-3xl font-bold text-slate-900">Issued Coupons History</h1>
@@ -319,8 +369,8 @@ const IssuedHistory: React.FC<IssuedHistoryProps> = ({ employees, settings, onSe
                     </header>
 
                     {/* Search and Filter */}
-                    <div className="mb-8 flex flex-col lg:flex-row gap-4 bg-white p-6 rounded-2xl border border-slate-200">
-                        <div className="flex-1">
+                    <div className="mb-8 flex flex-col gap-4 bg-white p-4 md:p-6 rounded-2xl border border-slate-200">
+                        <div className="w-full">
                             <label className="block text-sm font-semibold text-slate-700 mb-2">Search</label>
                             <div className="relative">
                                 <span className="absolute inset-y-0 left-0 flex items-center pl-3">
@@ -335,45 +385,49 @@ const IssuedHistory: React.FC<IssuedHistoryProps> = ({ employees, settings, onSe
                                 />
                             </div>
                         </div>
-                        <div>
-                            <label className="block text-sm font-semibold text-slate-700 mb-2">Calendar Filter</label>
-                            <CalendarFilter onDateRangeChange={handleDateRangeChange} />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-semibold text-slate-700 mb-2">Status</label>
-                            <select
-                                className="w-full px-3 py-2 border border-slate-200 bg-slate-50 rounded-xl text-sm focus:ring-orange-500 focus:border-orange-500 transition"
-                                value={filterStatus}
-                                onChange={(e) => setFilterStatus(e.target.value as CouponStatus | 'ALL')}
-                            >
-                                <option value="ALL">All Status</option>
-                                <option value={CouponStatus.PENDING}>Pending</option>
-                                <option value={CouponStatus.READY}>Ready</option>
-                                <option value={CouponStatus.RECEIVED}>Received</option>
-                                <option value={CouponStatus.ISSUED}>Issued</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label className="block text-sm font-semibold text-slate-700 mb-2">View</label>
-                            <div className="flex gap-2 h-10">
-                                <button
-                                    onClick={() => setViewMode('grid')}
-                                    className={`px-4 py-2 rounded-xl text-sm font-semibold transition ${viewMode === 'grid'
-                                        ? 'bg-orange-500 text-white'
-                                        : 'bg-slate-50 text-slate-700 border border-slate-200 hover:bg-slate-100'
-                                        }`}
+                        <div className="flex flex-col sm:flex-row gap-4">
+                            <div className="flex-1 min-w-0">
+                                <label className="block text-sm font-semibold text-slate-700 mb-2">Calendar Filter</label>
+                                <CalendarFilter onDateRangeChange={handleDateRangeChange} />
+                            </div>
+
+                            <div className="flex-1 min-w-0">
+                                <label className="block text-sm font-semibold text-slate-700 mb-2">Status</label>
+                                <select
+                                    className="w-full px-3 py-2 border border-slate-200 bg-slate-50 rounded-xl text-sm focus:ring-orange-500 focus:border-orange-500 transition"
+                                    value={filterStatus}
+                                    onChange={(e) => setFilterStatus(e.target.value as CouponStatus | 'ALL')}
                                 >
-                                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M3 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V4zM3 10a1 1 0 011-1h12a1 1 0 011 1v6a1 1 0 01-1 1H4a1 1 0 01-1-1v-6z"></path></svg>
-                                </button>
-                                <button
-                                    onClick={() => setViewMode('list')}
-                                    className={`px-4 py-2 rounded-xl text-sm font-semibold transition ${viewMode === 'list'
-                                        ? 'bg-orange-500 text-white'
-                                        : 'bg-slate-50 text-slate-700 border border-slate-200 hover:bg-slate-100'
-                                        }`}
-                                >
-                                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M3 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V4zM3 10a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H4a1 1 0 01-1-1v-6z"></path></svg>
-                                </button>
+                                    <option value="ALL">All Status</option>
+                                    <option value={CouponStatus.PENDING}>Pending</option>
+                                    <option value={CouponStatus.READY}>Ready</option>
+                                    <option value={CouponStatus.RECEIVED}>Received</option>
+                                    <option value={CouponStatus.ISSUED}>Issued</option>
+                                </select>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-semibold text-slate-700 mb-2">View</label>
+                                <div className="flex gap-2 h-10">
+                                    <button
+                                        onClick={() => setViewMode('grid')}
+                                        className={`px-3 py-2 rounded-xl text-sm font-semibold transition ${viewMode === 'grid'
+                                            ? 'bg-orange-500 text-white'
+                                            : 'bg-slate-50 text-slate-700 border border-slate-200 hover:bg-slate-100'
+                                            }`}
+                                    >
+                                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M3 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V4zM3 10a1 1 0 011-1h12a1 1 0 011 1v6a1 1 0 01-1 1H4a1 1 0 01-1-1v-6z"></path></svg>
+                                    </button>
+                                    <button
+                                        onClick={() => setViewMode('list')}
+                                        className={`px-3 py-2 rounded-xl text-sm font-semibold transition ${viewMode === 'list'
+                                            ? 'bg-orange-500 text-white'
+                                            : 'bg-slate-50 text-slate-700 border border-slate-200 hover:bg-slate-100'
+                                            }`}
+                                    >
+                                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M3 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V4zM3 10a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H4a1 1 0 01-1-1v-6z"></path></svg>
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -412,7 +466,7 @@ const IssuedHistory: React.FC<IssuedHistoryProps> = ({ employees, settings, onSe
                                                     e.stopPropagation();
                                                     toggleSelectForPrint(emp.id);
                                                 }}
-                                                className={`px-3 py-1 rounded-lg text-[9px] font-bold uppercase tracking-wider transition ${selectedForPrint.has(emp.id)
+                                                className={`px-2 py-0.5 rounded-lg text-[9px] font-bold uppercase tracking-wider transition ${selectedForPrint.has(emp.id)
                                                     ? 'bg-blue-500 text-white'
                                                     : 'bg-orange-500 text-white hover:bg-blue-500'
                                                     }`}
@@ -472,7 +526,7 @@ const IssuedHistory: React.FC<IssuedHistoryProps> = ({ employees, settings, onSe
                                                             title="View settlement voucher"
                                                             className="p-2 bg-purple-100 hover:bg-purple-200 text-purple-700 rounded-lg transition text-xs"
                                                         >
-                                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"></path><path d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"></path></svg>
+                                                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"></path><path d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"></path></svg>
                                                         </button>
                                                     </>
                                                 ) : emp.status !== CouponStatus.RECEIVED && emp.status !== CouponStatus.SETTLED && (
@@ -484,7 +538,7 @@ const IssuedHistory: React.FC<IssuedHistoryProps> = ({ employees, settings, onSe
                                                         title="Mark as received"
                                                         className="p-2 bg-emerald-100 hover:bg-emerald-200 text-emerald-700 rounded-lg transition text-xs"
                                                     >
-                                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"></path></svg>
+                                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"></path></svg>
                                                     </button>
                                                 )}
                                                 <button
@@ -495,7 +549,7 @@ const IssuedHistory: React.FC<IssuedHistoryProps> = ({ employees, settings, onSe
                                                     title="Delete coupon"
                                                     className="p-2 bg-red-100 hover:bg-red-200 text-red-700 rounded-lg transition text-xs"
                                                 >
-                                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"></path></svg>
+                                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"></path></svg>
                                                 </button>
                                             </div>
                                         </div>
@@ -517,11 +571,11 @@ const IssuedHistory: React.FC<IssuedHistoryProps> = ({ employees, settings, onSe
                                 <table className="w-full">
                                     <thead className="bg-slate-50 border-b border-slate-200">
                                         <tr>
-                                            <th className="px-6 py-3 text-center">
+                                            <th className="px-6 py-3 text-center select-cell">
                                                 <button
                                                     onClick={toggleSelectAll}
                                                     title={selectedForPrint.size === paginatedEmployees.length ? "Deselect All" : "Select All"}
-                                                    className={`px-3 py-2 rounded-lg text-xs font-bold transition ${selectedForPrint.size === paginatedEmployees.length && paginatedEmployees.length > 0
+                                                    className={`w-5 h-5 flex items-center justify-center rounded-md text-[8px] font-bold transition mx-auto ${selectedForPrint.size === paginatedEmployees.length && paginatedEmployees.length > 0
                                                         ? 'bg-blue-500 text-white'
                                                         : 'bg-slate-100 text-slate-700 hover:bg-blue-100'
                                                         }`}
@@ -529,84 +583,127 @@ const IssuedHistory: React.FC<IssuedHistoryProps> = ({ employees, settings, onSe
                                                     {selectedForPrint.size === paginatedEmployees.length && paginatedEmployees.length > 0 ? '✓' : '○'}
                                                 </button>
                                             </th>
-                                            <th className="px-6 py-3 text-left text-xs font-bold text-slate-700 uppercase tracking-wider">Employee</th>
-                                            <th className="px-6 py-3 text-left text-xs font-bold text-slate-700 uppercase tracking-wider">Emp ID</th>
-                                            <th className="px-6 py-3 text-left text-xs font-bold text-slate-700 uppercase tracking-wider">Serial</th>
-                                            <th className="px-6 py-3 text-right text-xs font-bold text-slate-700 uppercase tracking-wider">Amount</th>
-                                            <th className="px-6 py-3 text-left text-xs font-bold text-slate-700 uppercase tracking-wider">Issue Date</th>
-                                            <th className="px-6 py-3 text-left text-xs font-bold text-slate-700 uppercase tracking-wider">Valid Till</th>
-                                            <th className="px-6 py-3 text-center text-xs font-bold text-slate-700 uppercase tracking-wider">Status</th>
-                                            <th className="px-6 py-3 text-center text-xs font-bold text-slate-700 uppercase tracking-wider">Actions</th>
+                                            <th className="px-6 py-3 text-left text-xs font-bold text-slate-700 uppercase tracking-wider employee-cell">Employee</th>
+                                            <th className="px-6 py-3 text-left text-xs font-bold text-slate-700 uppercase tracking-wider mobile-hide">Emp ID</th>
+                                            <th className="px-6 py-3 text-left text-xs font-bold text-slate-700 uppercase tracking-wider mobile-hide">Serial</th>
+                                            <th className="px-6 py-3 text-right text-xs font-bold text-slate-700 uppercase tracking-wider amount-cell">Amount</th>
+                                            <th className="px-6 py-3 text-left text-xs font-bold text-slate-700 uppercase tracking-wider mobile-hide">Issue Date</th>
+                                            <th className="px-6 py-3 text-left text-xs font-bold text-slate-700 uppercase tracking-wider mobile-hide">Valid Till</th>
+                                            <th className="px-6 py-3 text-center text-xs font-bold text-slate-700 uppercase tracking-wider mobile-hide">Status</th>
+                                            <th className="px-6 py-3 text-center text-xs font-bold text-slate-700 uppercase tracking-wider action-cell">Actions</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-slate-200">
                                         {paginatedEmployees.map(emp => (
-                                            <tr key={emp.id} className={`hover:bg-slate-50 transition ${selectedForPrint.has(emp.id) ? 'bg-blue-50' : ''}`}>
-                                                <td className="px-6 py-4 text-center">
-                                                    <button
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            toggleSelectForPrint(emp.id);
-                                                        }}
-                                                        className={`px-3 py-2 rounded-lg text-xs font-bold transition ${selectedForPrint.has(emp.id)
-                                                            ? 'bg-blue-500 text-white'
-                                                            : 'bg-slate-100 text-slate-700 hover:bg-blue-100'
-                                                            }`}
-                                                    >
-                                                        {selectedForPrint.has(emp.id) ? '✓' : '○'}
-                                                    </button>
-                                                </td>
-                                                <td className="px-6 py-4">
-                                                    <button onClick={() => onSelectCoupon(emp)} className="font-semibold text-slate-900 hover:text-orange-600 transition">
-                                                        {emp.name}
-                                                    </button>
-                                                </td>
-                                                <td className="px-6 py-4 text-sm font-mono text-slate-700">{emp.empId}</td>
-                                                <td className="px-6 py-4 text-sm font-mono text-slate-700">{emp.serialCode}</td>
-                                                <td className="px-6 py-4 text-sm font-bold text-emerald-600 text-right">{formatRupees(emp.amount)}</td>
-                                                <td className="px-6 py-4 text-sm text-slate-600">{emp.issueDate}</td>
-                                                <td className="px-6 py-4 text-sm text-slate-600">{emp.validTill}</td>
-                                                <td className="px-6 py-4 text-center">
-                                                    <span className={`inline-block px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${emp.status === CouponStatus.RECEIVED ? 'bg-emerald-100 text-emerald-700' :
-                                                        emp.status === CouponStatus.READY ? 'bg-amber-100 text-amber-700' :
-                                                            emp.status === CouponStatus.ISSUED ? 'bg-blue-100 text-blue-700' :
-                                                                emp.status === CouponStatus.SETTLED ? 'bg-purple-100 text-purple-700' :
-                                                                    'bg-slate-100 text-slate-700'
-                                                        }`}>
-                                                        {emp.status}
-                                                    </span>
-                                                </td>
-                                                <td className="px-6 py-4 text-center">
-                                                    <div className="flex gap-2 justify-center">
-                                                        {emp.status === CouponStatus.SETTLED && emp.settlement_id ? (
-                                                            <>
-                                                                <button
-                                                                    onClick={() => fetchSettlementDetails(emp.settlement_id!)}
-                                                                    title="View settlement voucher"
-                                                                    className="p-2 bg-purple-100 hover:bg-purple-200 text-purple-700 rounded-lg transition text-xs"
-                                                                >
-                                                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"></path><path d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"></path></svg>
-                                                                </button>
-                                                            </>
-                                                        ) : emp.status !== CouponStatus.RECEIVED && emp.status !== CouponStatus.SETTLED && (
-                                                            <button
-                                                                onClick={() => markReceived(emp.id)}
-                                                                title="Mark as received"
-                                                                className="p-2 bg-emerald-100 hover:bg-emerald-200 text-emerald-700 rounded-lg transition text-xs"
-                                                            >
-                                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"></path></svg>
-                                                            </button>
-                                                        )}
+                                            <React.Fragment key={emp.id}>
+                                                <tr className={`hover:bg-slate-50 transition ${selectedForPrint.has(emp.id) ? 'bg-blue-50' : ''}`}>
+                                                    <td className="px-6 py-4 text-center select-cell">
                                                         <button
-                                                            onClick={() => deleteCoupon(emp.id)}
-                                                            title="Delete coupon"
-                                                            className="p-2 bg-red-100 hover:bg-red-200 text-red-700 rounded-lg transition text-xs"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                toggleSelectForPrint(emp.id);
+                                                            }}
+                                                            className={`w-5 h-5 flex items-center justify-center rounded-md text-[8px] font-bold transition mx-auto ${selectedForPrint.has(emp.id)
+                                                                ? 'bg-blue-500 text-white'
+                                                                : 'bg-slate-100 text-slate-700 hover:bg-blue-100'
+                                                                }`}
                                                         >
-                                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"></path></svg>
+                                                            {selectedForPrint.has(emp.id) ? '✓' : '○'}
                                                         </button>
-                                                    </div>
-                                                </td>
-                                            </tr>
+                                                    </td>
+                                                    <td className="px-6 py-4 employee-cell">
+                                                        <button onClick={() => onSelectCoupon(emp)} className="font-semibold text-slate-900 hover:text-orange-600 transition truncate block w-full text-left">
+                                                            {emp.name}
+                                                        </button>
+                                                    </td>
+                                                    <td className="px-6 py-4 text-sm font-bold font-mono text-slate-900 mobile-hide">{emp.empId}</td>
+                                                    <td className="px-6 py-4 text-sm font-bold font-mono text-slate-900 mobile-hide">{emp.serialCode}</td>
+                                                    <td className="px-6 py-4 text-sm font-bold text-emerald-600 text-right amount-cell">{formatRupees(emp.amount)}</td>
+                                                    <td className="px-6 py-4 text-sm font-bold text-slate-900 mobile-hide">{formatDateToDDMMYYYY(emp.issueDate)}</td>
+                                                    <td className="px-6 py-4 text-sm text-slate-600 mobile-hide">{emp.validTill ? formatDateToDDMMYYYY(emp.validTill) : 'N/A'}</td>
+                                                    <td className="px-6 py-4 text-center mobile-hide">
+                                                        <span className={`inline-block px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${emp.status === CouponStatus.RECEIVED ? 'bg-emerald-100 text-emerald-700' :
+                                                            emp.status === CouponStatus.READY ? 'bg-amber-100 text-amber-700' :
+                                                                emp.status === CouponStatus.ISSUED ? 'bg-blue-100 text-blue-700' :
+                                                                    emp.status === CouponStatus.SETTLED ? 'bg-purple-100 text-purple-700' :
+                                                                        'bg-slate-100 text-slate-700'
+                                                            }`}>
+                                                            {emp.status}
+                                                        </span>
+                                                    </td>
+                                                    <td className="px-6 py-4 text-center action-cell">
+                                                        <div className="flex gap-2 justify-center">
+                                                            {emp.status === CouponStatus.SETTLED && emp.settlement_id ? (
+                                                                <>
+                                                                    <button
+                                                                        onClick={() => fetchSettlementDetails(emp.settlement_id!)}
+                                                                        title="View settlement voucher"
+                                                                        className="p-2 bg-purple-100 hover:bg-purple-200 text-purple-700 rounded-lg transition"
+                                                                    >
+                                                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"></path><path d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"></path></svg>
+                                                                    </button>
+                                                                </>
+                                                            ) : emp.status !== CouponStatus.RECEIVED && emp.status !== CouponStatus.SETTLED && (
+                                                                <button
+                                                                    onClick={() => markReceived(emp.id)}
+                                                                    title="Mark Received"
+                                                                    className="p-2 bg-emerald-100 hover:bg-emerald-200 text-emerald-700 rounded-lg transition"
+                                                                >
+                                                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"></path></svg>
+                                                                </button>
+                                                            )}
+                                                            <button
+                                                                onClick={() => deleteCoupon(emp.id)}
+                                                                title="Delete coupon"
+                                                                className="p-2 bg-red-100 hover:bg-red-200 text-red-700 rounded-lg transition"
+                                                            >
+                                                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"></path></svg>
+                                                            </button>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                                <tr className={`mobile-only`}>
+                                                    <td colSpan={100} className="px-0 py-3">
+                                                        <div className={`bg-white rounded-lg border overflow-hidden mx-4 hover:border-slate-300 transition ${selectedForPrint.has(emp.id) ? 'border-blue-400 bg-blue-50' : 'border-slate-200'
+                                                            }`}>
+                                                            {/* Card Header - Minimal */}
+                                                            <div className="px-3 py-2 border-b border-slate-100 flex justify-between items-center gap-2">
+                                                                <div className="flex-1 min-w-0">
+                                                                    <p className="text-xs text-slate-500">Emp ID: <span className="font-semibold text-slate-700">{emp.empId}</span></p>
+                                                                </div>
+                                                                <div className="flex-shrink-0 flex items-center gap-1">
+                                                                    <span className={`flex-shrink-0 text-[9px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider whitespace-nowrap ${emp.status === CouponStatus.RECEIVED ? 'bg-emerald-100 text-emerald-700' :
+                                                                        emp.status === CouponStatus.READY ? 'bg-amber-100 text-amber-700' :
+                                                                            emp.status === CouponStatus.ISSUED ? 'bg-blue-100 text-blue-700' :
+                                                                                emp.status === CouponStatus.SETTLED ? 'bg-purple-100 text-purple-700' :
+                                                                                    'bg-slate-100 text-slate-700'
+                                                                        }`}>
+                                                                        {emp.status}
+                                                                    </span>
+                                                                </div>
+                                                            </div>
+
+                                                            {/* Card Details - Minimal */}
+                                                            <div className="p-3 space-y-2">
+                                                                <div className="grid grid-cols-3 gap-2 text-xs">
+                                                                    <div>
+                                                                        <p className="text-slate-500">Serial</p>
+                                                                        <p className="font-semibold text-slate-800">{emp.serialCode}</p>
+                                                                    </div>
+                                                                    <div>
+                                                                        <p className="text-slate-500">Issued</p>
+                                                                        <p className="font-semibold text-slate-700">{formatDateToDDMMYYYY(emp.issueDate)}</p>
+                                                                    </div>
+                                                                    <div>
+                                                                        <p className="text-slate-500">Valid</p>
+                                                                        <p className="font-semibold text-slate-700">{emp.validTill ? formatDateToDDMMYYYY(emp.validTill) : 'N/A'}</p>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            </React.Fragment>
                                         ))}
                                     </tbody>
                                 </table>
@@ -629,7 +726,7 @@ const IssuedHistory: React.FC<IssuedHistoryProps> = ({ employees, settings, onSe
                                         : 'bg-orange-500 hover:bg-orange-600 text-white'
                                         }`}
                                 >
-                                    ← Previous
+                                    ←
                                 </button>
                                 <div className="flex items-center gap-1">
                                     {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
@@ -653,7 +750,7 @@ const IssuedHistory: React.FC<IssuedHistoryProps> = ({ employees, settings, onSe
                                         : 'bg-orange-500 hover:bg-orange-600 text-white'
                                         }`}
                                 >
-                                    Next →
+                                    →
                                 </button>
                             </div>
                         </div>
@@ -681,30 +778,29 @@ const IssuedHistory: React.FC<IssuedHistoryProps> = ({ employees, settings, onSe
                         </div>
                     )}
                 </div>
-
-                {/* Floating Print Queue Button */}
-                {selectedForPrint.size > 0 && (
-                    <button
-                        onClick={() => document.querySelector('[data-print-sidebar]')?.scrollIntoView()}
-                        className="fixed bottom-8 right-8 z-40 flex items-center gap-3 px-6 py-4 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white font-bold rounded-full shadow-2xl transition-all hover:shadow-3xl hover:scale-110 animate-pulse"
-                        title="Open print queue"
-                    >
-                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4H9a2 2 0 01-2-2v-4a2 2 0 012-2h6a2 2 0 012 2v4a2 2 0 01-2 2zm-6-4h.01M12 8v.01M15 8v.01" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"></path></svg>
-                        <span className="text-lg font-bold">{selectedForPrint.size}</span>
-                        <span className="hidden sm:inline">Ready to Print</span>
-                    </button>
-                )}
             </div>
 
             {/* Print Selection Sidebar */}
             <div data-print-sidebar className={`fixed right-0 top-0 h-screen w-96 bg-white border-l border-slate-200 shadow-2xl overflow-y-auto transition-transform duration-300 z-50 ${selectedForPrint.size > 0 ? 'translate-x-0' : 'translate-x-full'
                 }`}>
-                <div className="sticky top-0 bg-gradient-to-r from-orange-500 to-orange-600 text-white p-6 border-b border-orange-600">
-                    <h2 className="text-xl font-bold mb-2">Print Queue</h2>
-                    <p className="text-orange-100 text-sm">{selectedForPrint.size} coupon{selectedForPrint.size !== 1 ? 's' : ''} selected</p>
+                <div className="sticky top-0 bg-gradient-to-r from-orange-500 to-orange-600 text-white p-6 border-b border-orange-600 z-10 flex justify-between items-center">
+                    <div>
+                        <h2 className="text-xl font-bold">Print Queue</h2>
+                        <p className="text-orange-100 text-sm">{selectedForPrint.size} coupon{selectedForPrint.size !== 1 ? 's' : ''} selected</p>
+                    </div>
+                    <button
+                        onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+                        className="lg:hidden p-2 bg-white/20 rounded-lg hover:bg-white/30 transition"
+                    >
+                        {sidebarCollapsed ? (
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M19 9l-7 7-7-7" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"></path></svg>
+                        ) : (
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M5 15l7-7 7 7" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"></path></svg>
+                        )}
+                    </button>
                 </div>
 
-                <div className="p-6 space-y-4">
+                <div className={`p-6 space-y-4 ${sidebarCollapsed ? 'hidden lg:block' : 'block'}`}>
                     {getSelectedCoupons().length === 0 ? (
                         <div className="text-center py-12 text-slate-400">
                             <svg className="w-12 h-12 mx-auto mb-3 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"></path></svg>
@@ -723,10 +819,10 @@ const IssuedHistory: React.FC<IssuedHistoryProps> = ({ employees, settings, onSe
                                             </div>
                                             <button
                                                 onClick={() => toggleSelectForPrint(emp.id)}
-                                                className="p-1 hover:bg-orange-200 rounded transition text-orange-600"
+                                                className="p-2 hover:bg-orange-200 rounded transition text-orange-600"
                                                 title="Remove from print queue"
                                             >
-                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M6 18L18 6M6 6l12 12" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"></path></svg>
+                                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M6 18L18 6M6 6l12 12" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"></path></svg>
                                             </button>
                                         </div>
                                     </div>
@@ -748,22 +844,29 @@ const IssuedHistory: React.FC<IssuedHistoryProps> = ({ employees, settings, onSe
 
                                 {/* Action Buttons */}
                                 <div className="space-y-3">
-                                    <div className="grid grid-cols-2 gap-3">
+                                    <div className="grid grid-cols-3 gap-3">
                                         <button
                                             onClick={handleBulkMarkReceived}
                                             disabled={isPrinting || selectedForPrint.size === 0}
-                                            className="py-3 px-4 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 text-white font-bold rounded-lg transition shadow-md disabled:cursor-not-allowed flex items-center justify-center gap-2 text-xs"
+                                            className="py-3 px-4 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 text-white font-bold rounded-lg transition shadow-md disabled:cursor-not-allowed flex items-center justify-center"
+                                            title="Mark Received"
                                         >
-                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"></path></svg>
-                                            Mark Received
+                                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"></path></svg>
                                         </button>
                                         <button
                                             onClick={handleBulkDelete}
                                             disabled={isPrinting || selectedForPrint.size === 0}
-                                            className="py-3 px-4 bg-red-600 hover:bg-red-700 disabled:bg-slate-300 text-white font-bold rounded-lg transition shadow-md disabled:cursor-not-allowed flex items-center justify-center gap-2 text-xs"
+                                            className="py-3 px-4 bg-red-600 hover:bg-red-700 disabled:bg-slate-300 text-white font-bold rounded-lg transition shadow-md disabled:cursor-not-allowed flex items-center justify-center"
+                                            title="Delete Selected"
                                         >
-                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"></path></svg>
-                                            Delete Selected
+                                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"></path></svg>
+                                        </button>
+                                        <button
+                                            onClick={() => setSelectedForPrint(new Set())}
+                                            className="py-3 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-lg transition flex items-center justify-center"
+                                            title="Clear Selection"
+                                        >
+                                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M6 18L18 6M6 6l12 12" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"></path></svg>
                                         </button>
                                     </div>
                                     <button
@@ -771,14 +874,8 @@ const IssuedHistory: React.FC<IssuedHistoryProps> = ({ employees, settings, onSe
                                         disabled={isPrinting || selectedForPrint.size === 0}
                                         className="w-full py-3 px-4 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 disabled:from-slate-300 disabled:to-slate-300 text-white font-bold rounded-lg transition shadow-md disabled:cursor-not-allowed flex items-center justify-center"
                                     >
-                                        <svg className="w-4 h-4 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4H9a2 2 0 01-2-2v-4a2 2 0 012-2h6a2 2 0 012 2v4a2 2 0 01-2 2zm-6-4h.01M12 8v.01M15 8v.01" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"></path></svg>
+                                        <svg className="w-5 h-5 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4H9a2 2 0 01-2-2v-4a2 2 0 012-2h6a2 2 0 012 2v4a2 2 0 01-2 2zm-6-4h.01M12 8v.01M15 8v.01" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"></path></svg>
                                         Print Selected
-                                    </button>
-                                    <button
-                                        onClick={() => setSelectedForPrint(new Set())}
-                                        className="w-full py-2 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-lg transition"
-                                    >
-                                        Clear Selection
                                     </button>
                                 </div>
                             </div>

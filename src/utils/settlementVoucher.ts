@@ -348,9 +348,11 @@ export const downloadVoucherPDF = async (data: VoucherData): Promise<void> => {
         }
 
         const canvas = await html2canvas(voucherElement, {
-            scale: 2,
+            scale: 12.5, // Targeting 1200 DPI (1200 / 96 = 12.5)
             useCORS: true,
-            backgroundColor: '#ffffff'
+            backgroundColor: '#ffffff',
+            imageTimeout: 30000,
+            logging: false
         });
 
         const imgData = canvas.toDataURL('image/png');

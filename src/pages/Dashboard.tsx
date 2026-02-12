@@ -5,6 +5,7 @@ import { supabase } from '../supabaseClient';
 import SettingsService from '../utils/settingsService';
 import { getRupeeSymbol, formatRupees } from '../utils/currencyUtils';
 import { parseDateFromCSV, getValidityDate } from '../utils/dateUtils';
+import { formatDateToDDMMYYYY } from '../utils/dateFormatUtils';
 
 interface DashboardProps {
   employees: Employee[];
@@ -462,6 +463,18 @@ const Dashboard: React.FC<DashboardProps> = ({
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-8">
+      <style>{`
+        @media (max-width: 640px) {
+          .mobile-hide { display: none !important; }
+          .mobile-only { display: table-row !important; }
+          table { table-layout: fixed; }
+          th, td { padding-left: 0.5rem !important; padding-right: 0.5rem !important; }
+          .select-cell { width: 48px; }
+          .employee-cell { width: 60%; }
+          .status-cell { width: 30%; }
+        }
+        .mobile-only { display: none; }
+      `}</style>
       <header className="mb-12">
         <div className="flex items-center justify-between mb-2">
           <div>
@@ -472,71 +485,71 @@ const Dashboard: React.FC<DashboardProps> = ({
       </header>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
         {/* Total Issued Card */}
         <div className="bg-white p-8 rounded-[2rem] shadow-sm border border-slate-100 group hover:border-blue-400 transition-all duration-300">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-[10px] font-black text-blue-500 uppercase tracking-[0.2em] mb-3">Total Issued</p>
-              <p className="text-4xl font-black text-slate-900 group-hover:scale-110 transition-transform origin-left">{stats.totalIssued}</p>
+          <div className="flex flex-col items-start gap-3">
+            <div className="flex items-center gap-2">
+              <p className="text-[10px] font-black text-blue-500 uppercase tracking-[0.2em]">Total Issued</p>
+              <div className="w-8 h-8 md:w-10 md:h-10 bg-blue-50 rounded-full flex items-center justify-center text-lg md:text-xl shadow-inner group-hover:bg-blue-100 transition-colors flex-shrink-0">
+                ✓
+              </div>
             </div>
-            <div className="w-16 h-16 bg-blue-50 rounded-full flex items-center justify-center text-2xl shadow-inner group-hover:bg-blue-100 transition-colors">
-              ✓
-            </div>
+            <p className="text-4xl font-black text-slate-900 group-hover:scale-110 transition-transform origin-left">{stats.totalIssued}</p>
           </div>
         </div>
 
         {/* Pending Card */}
         <div className="bg-white p-8 rounded-[2rem] shadow-sm border border-slate-100 group hover:border-amber-400 transition-all duration-300">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-[10px] font-black text-amber-500 uppercase tracking-[0.2em] mb-3">Pending</p>
-              <div className="flex items-baseline gap-1">
-                <span className="text-lg font-bold text-slate-400">{getRupeeSymbol()}</span>
-                <p className="text-4xl font-black text-slate-900 group-hover:scale-110 transition-transform origin-left">{stats.pendingAmount}</p>
+          <div className="flex flex-col items-start gap-3">
+            <div className="flex items-center gap-2">
+              <p className="text-[10px] font-black text-amber-500 uppercase tracking-[0.2em]">Pending</p>
+              <div className="w-8 h-8 md:w-10 md:h-10 bg-amber-50 rounded-full flex items-center justify-center text-lg md:text-xl shadow-inner group-hover:bg-amber-100 transition-colors flex-shrink-0">
+                ⌛
               </div>
             </div>
-            <div className="w-16 h-16 bg-amber-50 rounded-full flex items-center justify-center text-2xl shadow-inner group-hover:bg-amber-100 transition-colors">
-              ⌛
+            <div className="flex items-baseline gap-1">
+              <span className="text-lg font-bold text-slate-400">{getRupeeSymbol()}</span>
+              <p className="text-4xl font-black text-slate-900 group-hover:scale-110 transition-transform origin-left">{stats.pendingAmount}</p>
             </div>
           </div>
         </div>
 
         {/* Total Value Card */}
         <div className="bg-white p-8 rounded-[2rem] shadow-sm border border-slate-100 group hover:border-emerald-400 transition-all duration-300">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-[10px] font-black text-emerald-500 uppercase tracking-[0.2em] mb-3">Total Value</p>
-              <div className="flex items-baseline gap-1">
-                <span className="text-lg font-bold text-slate-400">{getRupeeSymbol()}</span>
-                <p className="text-4xl font-black text-slate-900 group-hover:scale-110 transition-transform origin-left">{stats.totalSpent}</p>
+          <div className="flex flex-col items-start gap-3">
+            <div className="flex items-center gap-2">
+              <p className="text-[10px] font-black text-emerald-500 uppercase tracking-[0.2em]">Total Value</p>
+              <div className="w-8 h-8 md:w-10 md:h-10 bg-emerald-50 rounded-full flex items-center justify-center text-lg md:text-xl shadow-inner group-hover:bg-emerald-100 transition-colors flex-shrink-0">
+                💰
               </div>
             </div>
-            <div className="w-16 h-16 bg-emerald-50 rounded-full flex items-center justify-center text-2xl shadow-inner group-hover:bg-emerald-100 transition-colors">
-              💰
+            <div className="flex items-baseline gap-1">
+              <span className="text-lg font-bold text-slate-400">{getRupeeSymbol()}</span>
+              <p className="text-4xl font-black text-slate-900 group-hover:scale-110 transition-transform origin-left">{stats.totalSpent}</p>
             </div>
           </div>
         </div>
 
         {/* Settlement Card */}
         <div className="bg-white p-8 rounded-[2rem] shadow-sm border border-slate-100 group hover:border-indigo-400 transition-all duration-300">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-[10px] font-black text-indigo-500 uppercase tracking-[0.2em] mb-3">Settlement</p>
-              <div className="flex items-baseline gap-1">
-                <span className="text-lg font-bold text-slate-400">{getRupeeSymbol()}</span>
-                <p className="text-4xl font-black text-slate-900 group-hover:scale-110 transition-transform origin-left">{stats.settlementAmount}</p>
+          <div className="flex flex-col items-start gap-3">
+            <div className="flex items-center gap-2">
+              <p className="text-[10px] font-black text-indigo-500 uppercase tracking-[0.2em]">Settlement</p>
+              <div className="w-8 h-8 md:w-10 md:h-10 bg-indigo-50 rounded-full flex items-center justify-center text-lg md:text-xl shadow-inner group-hover:bg-indigo-100 transition-colors flex-shrink-0">
+                🤝
               </div>
             </div>
-            <div className="w-16 h-16 bg-indigo-50 rounded-full flex items-center justify-center text-2xl shadow-inner group-hover:bg-indigo-100 transition-colors">
-              🤝
+            <div className="flex items-baseline gap-1">
+              <span className="text-lg font-bold text-slate-400">{getRupeeSymbol()}</span>
+              <p className="text-4xl font-black text-slate-900 group-hover:scale-110 transition-transform origin-left">{stats.settlementAmount}</p>
             </div>
           </div>
-        </div >
-      </div >
+        </div>
+      </div>
 
       {/* CSV Upload Area */}
-      < section className="bg-white p-10 rounded-3xl shadow-sm border border-slate-100" >
+      <section className="bg-white p-10 rounded-3xl shadow-sm border border-slate-100">
         <div className="mb-8 flex justify-between items-center">
           <div>
             <h2 className="text-xl font-bold text-slate-900">Issue Coupons</h2>
@@ -548,7 +561,7 @@ const Dashboard: React.FC<DashboardProps> = ({
               onClick={downloadCSVTTemplate}
               className="px-6 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-bold shadow-lg shadow-emerald-100 transition flex items-center gap-1"
             >
-              <img width="20" height="20" className="mr-2" src="https://img.icons8.com/ios-glyphs/30/FFFFFF/download--v1.png" alt="download--v1" />
+              <img width="20" height="20" className="mr-2 " src="https://img.icons8.com/ios-glyphs/30/FFFFFF/download--v1.png" alt="download--v1" />
               CSV Template
             </button>
             <button
@@ -718,15 +731,17 @@ const Dashboard: React.FC<DashboardProps> = ({
                 <span className="text-xs font-bold text-slate-500">{selectedRecentCoupons.size} Selected</span>
                 <button
                   onClick={handleBulkMarkReceivedRecent}
-                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-lg shadow-emerald-100 transition"
+                  className="p-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl shadow-lg shadow-emerald-100 transition"
+                  title="Mark Received"
                 >
-                  Mark Received
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" /></svg>
                 </button>
                 <button
                   onClick={() => setSelectedRecentCoupons(new Set())}
-                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl text-xs font-bold transition"
+                  className="p-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl transition"
+                  title="Clear Selection"
                 >
-                  Clear
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M6 18L18 6M6 6l12 12" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" /></svg>
                 </button>
               </div>
             )}
@@ -748,23 +763,23 @@ const Dashboard: React.FC<DashboardProps> = ({
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-slate-50 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                <th className="px-8 py-5 w-16">
+                <th className="px-8 py-5 w-16 select-cell">
                   <button
                     onClick={toggleSelectAllRecent}
                     title={selectedRecentCoupons.size === filteredEmployees.length ? "Deselect All" : "Select All"}
-                    className={`w-6 h-6 rounded flex items-center justify-center border-2 transition ${selectedRecentCoupons.size === filteredEmployees.length && filteredEmployees.length > 0
-                        ? 'bg-blue-500 border-blue-500 text-white'
-                        : 'bg-white border-slate-200 text-transparent hover:border-blue-400'
+                    className={`w-5 h-5 rounded flex items-center justify-center border-2 transition ${selectedRecentCoupons.size === filteredEmployees.length && filteredEmployees.length > 0
+                      ? 'bg-blue-500 border-blue-500 text-white'
+                      : 'bg-white border-slate-200 text-transparent hover:border-blue-400'
                       }`}
                   >
                     {selectedRecentCoupons.size === filteredEmployees.length && filteredEmployees.length > 0 ? '✓' : ''}
                   </button>
                 </th>
-                <th className="px-8 py-5">Employee Name</th>
-                <th className="px-8 py-5">Employee ID</th>
-                <th className="px-8 py-5">Serial Code</th>
-                <th className="px-8 py-5">Issue Date</th>
-                <th className="px-8 py-5">Status</th>
+                <th className="px-8 py-5 employee-cell">Employee Name</th>
+                <th className="px-8 py-5 mobile-hide">Employee ID</th>
+                <th className="px-8 py-5 mobile-hide">Serial Code</th>
+                <th className="px-8 py-5 mobile-hide">Issue Date</th>
+                <th className="px-8 py-5 status-cell">Status</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50 text-sm">
@@ -776,32 +791,65 @@ const Dashboard: React.FC<DashboardProps> = ({
                 </tr>
               ) : (
                 filteredEmployees.map((emp) => (
-                  <tr key={emp.id} className={`hover:bg-slate-50 transition ${selectedRecentCoupons.has(emp.id) ? 'bg-blue-50/50' : ''}`}>
-                    <td className="px-8 py-5">
-                      <button
-                        onClick={() => toggleSelectRecent(emp.id)}
-                        className={`w-5 h-5 rounded flex items-center justify-center border-2 transition ${selectedRecentCoupons.has(emp.id)
+                  <React.Fragment key={emp.id}>
+                    <tr className={`hover:bg-slate-50 transition ${selectedRecentCoupons.has(emp.id) ? 'bg-blue-50/50' : ''}`}>
+                      <td className="px-8 py-5 select-cell">
+                        <button
+                          onClick={() => toggleSelectRecent(emp.id)}
+                          className={`w-5 h-5 rounded flex items-center justify-center border-2 transition mx-auto ${selectedRecentCoupons.has(emp.id)
                             ? 'bg-blue-500 border-blue-500 text-white'
                             : 'bg-white border-slate-200 text-transparent hover:border-blue-400'
-                          }`}
-                      >
-                        {selectedRecentCoupons.has(emp.id) ? '✓' : ''}
-                      </button>
-                    </td>
-                    <td className="px-8 py-5 font-medium text-slate-900">{emp.name}</td>
-                    <td className="px-8 py-5 text-slate-500">{emp.empId}</td>
-                    <td className="px-8 py-5 font-mono text-xs text-slate-400">{emp.serialCode}</td>
-                    <td className="px-8 py-5 text-slate-500">{emp.issueDate}</td>
-                    <td className="px-8 py-5">
-                      <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${emp.status === CouponStatus.RECEIVED ? 'bg-emerald-100 text-emerald-700' :
-                        emp.status === CouponStatus.ISSUED ? 'bg-blue-100 text-blue-700' :
-                          emp.status === CouponStatus.READY ? 'bg-amber-100 text-amber-700' :
-                            'bg-slate-100 text-slate-500'
-                        }`}>
-                        {emp.status}
-                      </span>
-                    </td>
-                  </tr>
+                            }`}
+                        >
+                          {selectedRecentCoupons.has(emp.id) ? '✓' : ''}
+                        </button>
+                      </td>
+                      <td className="px-8 py-5 font-medium text-slate-900 employee-cell pl-16">{emp.name}</td>
+                      <td className="px-8 py-5 font-bold font-mono text-slate-700 mobile-hide">{emp.empId}</td>
+                      <td className="px-8 py-5 font-bold font-mono text-slate-700 mobile-hide">{emp.serialCode}</td>
+                      <td className="px-8 py-5 font-bold text-slate-600 mobile-hide">{formatDateToDDMMYYYY(emp.issueDate)}</td>
+                      <td className="px-8 py-5 status-cell">
+                        <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${emp.status === CouponStatus.RECEIVED ? 'bg-emerald-100 text-emerald-700' :
+                          emp.status === CouponStatus.ISSUED ? 'bg-blue-100 text-blue-700' :
+                            emp.status === CouponStatus.READY ? 'bg-amber-100 text-amber-700' :
+                              'bg-slate-100 text-slate-500'
+                          }`}>
+                          {emp.status}
+                        </span>
+                      </td>
+                    </tr>
+                    <tr className="mobile-only">
+                      <td colSpan={100} className="px-0 py-3">
+                        <div className={`bg-white rounded-lg border overflow-hidden mx-4 hover:border-slate-300 transition ${selectedRecentCoupons.has(emp.id) ? 'border-blue-400 bg-blue-50' : 'border-slate-200'
+                          }`}>
+                          {/* Card Header - Minimal */}
+                          <div className="px-3 py-2 border-b border-slate-100 flex justify-between items-center gap-2">
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs text-slate-500">Emp ID: <span className="font-semibold text-slate-700">{emp.empId}</span></p>
+                            </div>
+                          </div>
+
+                          {/* Card Details - Minimal */}
+                          <div className="p-3 space-y-2">
+                            <div className="grid grid-cols-3 gap-2 text-xs">
+                              <div>
+                                <p className="text-slate-500">Serial</p>
+                                <p className="font-semibold text-slate-800">{emp.serialCode}</p>
+                              </div>
+                              <div>
+                                <p className="text-slate-500">Issued</p>
+                                <p className="font-semibold text-slate-700">{formatDateToDDMMYYYY(emp.issueDate)}</p>
+                              </div>
+                              <div>
+                                <p className="text-slate-500">Valid</p>
+                                <p className="font-semibold text-slate-700">{emp.validTill ? formatDateToDDMMYYYY(emp.validTill) : 'N/A'}</p>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+                    </tr>
+                  </React.Fragment>
                 ))
               )}
             </tbody>

@@ -17,11 +17,16 @@ export class CouponRenderer {
 
     constructor() {
         this.canvas = document.createElement('canvas');
+        // Standard high-quality base resolution
         this.canvas.width = 1048;
         this.canvas.height = 598;
-        const context = this.canvas.getContext('2d');
+        const context = this.canvas.getContext('2d', { alpha: false });
         if (!context) throw new Error('Could not get canvas context');
         this.ctx = context;
+        
+        // Improve image smoothing
+        this.ctx.imageSmoothingEnabled = true;
+        this.ctx.imageSmoothingQuality = 'high';
     }
 
     /**
@@ -30,6 +35,11 @@ export class CouponRenderer {
     async loadTemplate(templateUrl: string): Promise<void> {
         if (imageCache[templateUrl]) {
             this.templateImage = imageCache[templateUrl];
+            // Match canvas to image original size if possible
+            if (this.templateImage.width > 0) {
+                this.canvas.width = this.templateImage.width;
+                this.canvas.height = this.templateImage.height;
+            }
             return;
         }
 
@@ -40,6 +50,13 @@ export class CouponRenderer {
             img.onload = () => {
                 this.templateImage = img;
                 imageCache[templateUrl] = img;
+                
+                // Set canvas to original image dimensions for max quality
+                if (img.width > 0) {
+                    this.canvas.width = img.width;
+                    this.canvas.height = img.height;
+                }
+                
                 resolve();
             };
 
@@ -65,6 +82,10 @@ export class CouponRenderer {
             await this.loadTemplate(templateUrl);
         }
 
+        // Calculate scale factor relative to reference 1048x598 dimensions
+        // to maintain relative positioning on different sized templates
+        const scale = this.templateImage ? this.templateImage.width / 1048 : 1;
+
         // Clear canvas
         this.ctx.fillStyle = '#ffffff';
         this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
@@ -86,45 +107,46 @@ export class CouponRenderer {
 
         const positions = {
             employeeName: {
-                x: nameEl?.x || 241,
-                y: nameEl?.y || 326,
-                fontSize: nameEl?.fontSize || 48,
+                x: (nameEl?.x || 241) * scale,
+                y: (nameEl?.y || 326) * scale,
+                fontSize: (nameEl?.fontSize || 48) * scale,
                 color: nameEl?.color || '#1e293b',
                 fontWeight: nameEl?.fontWeight || 'bold'
             },
             employeeId: {
-                x: empIdEl?.x || 220,
-                y: empIdEl?.y || 398,
-                fontSize: empIdEl?.fontSize || 48,
+                x: (empIdEl?.x || 220) * scale,
+                y: (empIdEl?.y || 398) * scale,
+                fontSize: (empIdEl?.fontSize || 48) * scale,
                 color: empIdEl?.color || '#1e293b',
                 fontWeight: empIdEl?.fontWeight || 'bold'
             },
             date: {
-                x: dateEl?.x || 220,
-                y: dateEl?.y || 517,
-                fontSize: dateEl?.fontSize || 24,
+                x: (dateEl?.x || 220) * scale,
+                y: (dateEl?.y || 517) * scale,
+                fontSize: (dateEl?.fontSize || 24) * scale,
                 color: dateEl?.color || '#1e293b',
                 fontWeight: dateEl?.fontWeight || 'bold'
             },
             serial: {
-                x: serialEl?.x || 778,
-                y: serialEl?.y || 141,
-                fontSize: serialEl?.fontSize || 36,
+                x: (serialEl?.x || 778) * scale,
+                y: (serialEl?.y || 141) * scale,
+                fontSize: (serialEl?.fontSize || 36) * scale,
                 color: serialEl?.color || '#334155',
                 fontWeight: serialEl?.fontWeight || 'bold'
             },
             amount: {
-                x: amountEl?.x || 740,
-                y: amountEl?.y || 251,
-                fontSize: amountEl?.fontSize || 56,
+                x: (amountEl?.x || 740) * scale,
+                y: (amountEl?.y || 251) * scale,
+                fontSize: (amountEl?.fontSize || 56) * scale,
                 color: amountEl?.color || '#059669',
-                fontWeight: amountEl?.fontWeight || 'bold'
+                fontWeight: amountEl?.fontWeight || 'bold',
+                enabled: settings.amountVisible !== false
             },
             qr: {
-                x: qrEl?.x || 800,
-                y: qrEl?.y || 400,
-                width: qrEl?.width || 150,
-                height: qrEl?.height || 150,
+                x: (qrEl?.x || 800) * scale,
+                y: (qrEl?.y || 400) * scale,
+                width: (qrEl?.width || 150) * scale,
+                height: (qrEl?.height || 150) * scale,
                 enabled: settings.qrEnabled
             }
         };
@@ -145,16 +167,17 @@ export class CouponRenderer {
         this.ctx.fillStyle = positions.date.color;
         this.ctx.fillText(employee.issueDate, positions.date.x, positions.date.y);
 
-        // Draw serial code (prominent with box background for visibility)
+        // Draw serial code
         this.ctx.font = `${positions.serial.fontWeight} ${positions.serial.fontSize}px monospace`;
         this.ctx.fillStyle = positions.serial.color;
 
         // Draw rectangle background for serial code
+        this.ctx.font = `bold ${36 * scale}px monospace`;
         const textMetrics = this.ctx.measureText(employee.serialCode);
-        const boxX = positions.serial.x - 10;
-        const boxY = positions.serial.y - 28;
-        const boxWidth = textMetrics.width + 20;
-        const boxHeight = 40;
+        const boxX = positions.serial.x - (10 * scale);
+        const boxY = positions.serial.y - (28 * scale);
+        const boxWidth = textMetrics.width + (20 * scale);
+        const boxHeight = 40 * scale;
 
         // Semi-transparent background
         this.ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
@@ -162,21 +185,22 @@ export class CouponRenderer {
 
         // Serial code text
         this.ctx.fillStyle = '#1e293b';
-        this.ctx.font = 'bold 36px monospace';
         this.ctx.fillText(employee.serialCode, positions.serial.x, positions.serial.y);
 
-        // Draw amount in emerald green
-        this.ctx.font = `${positions.amount.fontWeight} ${positions.amount.fontSize}px Inter, sans-serif`;
-        this.ctx.fillStyle = positions.amount.color;
-        this.ctx.textAlign = 'left';
-        this.ctx.fillText(formatRupees(employee.amount), positions.amount.x, positions.amount.y);
+        // Draw amount in emerald green if enabled
+        if (positions.amount.enabled) {
+            this.ctx.font = `${positions.amount.fontWeight} ${positions.amount.fontSize}px Inter, sans-serif`;
+            this.ctx.fillStyle = positions.amount.color;
+            this.ctx.textAlign = 'left';
+            this.ctx.fillText(formatRupees(employee.amount), positions.amount.x, positions.amount.y);
+        }
 
         // Draw QR Code if enabled
         if (positions.qr.enabled) {
             try {
                 const qrDataUrl = await QRCode.toDataURL(employee.serialCode, {
                     margin: 1,
-                    width: positions.qr.width,
+                    width: Math.round(positions.qr.width),
                     color: {
                         dark: '#000000',
                         light: '#ffffff'
@@ -233,9 +257,15 @@ export async function renderMultipleCouponsA4(
 ): Promise<HTMLCanvasElement[]> {
     const canvases: HTMLCanvasElement[] = [];
 
-    // A4 dimensions in pixels at 96 DPI: 210mm x 297mm
-    const a4Width = 1240;
-    const a4Height = 1754;
+    // TARGET DPI for max quality (User requested 1200)
+    // Note: Browsers may have canvas size limits. 600-1200 is ultra-high.
+    const TARGET_DPI = 1200;
+    const SCALE_FACTOR = TARGET_DPI / 96;
+
+    // A4 dimensions in pixels
+    // 210mm x 297mm -> approx 8.27in x 11.69in
+    const a4Width = Math.round(8.27 * TARGET_DPI);
+    const a4Height = Math.round(11.69 * TARGET_DPI);
 
     // Determine layout based on cards per page
     let cols: number, rows: number;
@@ -260,17 +290,12 @@ export async function renderMultipleCouponsA4(
     const cardWidth = a4Width / cols;
     const cardHeight = a4Height / rows;
 
-    // Padding around cards
-    const padding = 5;
+    // Padding around cards (scaled)
+    const padding = 5 * SCALE_FACTOR;
     const effectiveCardWidth = cardWidth - padding * 2;
     const effectiveCardHeight = cardHeight - padding * 2;
 
-    // Scale coupon to fit card (original is 1048 x 598)
-    const scaleX = effectiveCardWidth / 1048;
-    const scaleY = effectiveCardHeight / 598;
-    const scale = Math.min(scaleX, scaleY); // Maintain aspect ratio
-
-    // Create pages
+    // Create renderer
     const renderer = new CouponRenderer();
     try {
         await renderer.loadTemplate(templateUrl);
@@ -279,16 +304,23 @@ export async function renderMultipleCouponsA4(
         throw err;
     }
 
+    // Original coupon base size is 1048x598, but we now use original image size
+    // We scale the coupon to fit the card slot while maintaining aspect ratio
+    
     for (let pageIdx = 0; pageIdx < Math.ceil(employees.length / cardsPerPage); pageIdx++) {
         const pageCanvas = document.createElement('canvas');
         pageCanvas.width = a4Width;
         pageCanvas.height = a4Height;
-        const ctx = pageCanvas.getContext('2d');
+        const ctx = pageCanvas.getContext('2d', { alpha: false });
         if (!ctx) continue;
 
         // White background
         ctx.fillStyle = '#ffffff';
         ctx.fillRect(0, 0, a4Width, a4Height);
+        
+        // High quality rendering
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
 
         // Render coupons for this page
         const startIdx = pageIdx * cardsPerPage;
@@ -305,8 +337,13 @@ export async function renderMultipleCouponsA4(
             const y = row * cardHeight + padding;
 
             try {
-                // Render coupon canvas
+                // Render coupon canvas at its original/max quality
                 const couponCanvas = await renderer.render(employee, settings, templateUrl);
+
+                // Calculate scale to fit in the card slot
+                const scaleX = effectiveCardWidth / couponCanvas.width;
+                const scaleY = effectiveCardHeight / couponCanvas.height;
+                const scale = Math.min(scaleX, scaleY);
 
                 // Draw scaled coupon onto page
                 ctx.save();
@@ -315,9 +352,9 @@ export async function renderMultipleCouponsA4(
                 ctx.drawImage(couponCanvas, 0, 0);
                 ctx.restore();
 
-                // Draw border around card (optional, for visual separation)
+                // Draw border around card (scaled)
                 ctx.strokeStyle = '#e2e8f0';
-                ctx.lineWidth = 1;
+                ctx.lineWidth = 1 * SCALE_FACTOR;
                 ctx.strokeRect(x, y, effectiveCardWidth, effectiveCardHeight);
             } catch (err) {
                 console.error(`Failed to render coupon for employee ${employee.name}:`, err);

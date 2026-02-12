@@ -87,19 +87,19 @@ const CalendarFilter: React.FC<CalendarFilterProps> = ({ onDateRangeChange }) =>
     };
 
     return (
-        <div className="relative inline-block">
+        <div className="relative w-full">
             <button
                 onClick={() => setIsOpen(!isOpen)}
-                className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm font-semibold text-slate-700 hover:bg-slate-50 transition flex items-center gap-2"
+                className="w-full px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm font-semibold text-slate-700 hover:bg-slate-50 transition flex items-center gap-2 justify-start whitespace-nowrap overflow-hidden"
             >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h18M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                 </svg>
-                {getFilterLabel()}
+                <span className="truncate">{getFilterLabel()}</span>
             </button>
 
             {isOpen && (
-                <div className="absolute right-0 mt-2 w-80 bg-white border border-slate-200 rounded-xl shadow-lg z-50 p-6">
+                <div className="absolute left-0 right-0 mt-2 w-full sm:w-80 bg-white border border-slate-200 rounded-xl shadow-lg z-50 p-6">
                     <div className="space-y-4">
                         {/* Filter Type Options */}
                         <div>
@@ -108,8 +108,8 @@ const CalendarFilter: React.FC<CalendarFilterProps> = ({ onDateRangeChange }) =>
                                 <button
                                     onClick={() => handleFilterTypeChange('all')}
                                     className={`px-4 py-2 rounded-lg text-sm font-semibold transition ${filterType === 'all'
-                                            ? 'bg-orange-100 text-orange-700 border border-orange-300'
-                                            : 'bg-slate-50 text-slate-700 border border-slate-200 hover:bg-slate-100'
+                                        ? 'bg-orange-100 text-orange-700 border border-orange-300'
+                                        : 'bg-slate-50 text-slate-700 border border-slate-200 hover:bg-slate-100'
                                         }`}
                                 >
                                     All Time
@@ -117,8 +117,8 @@ const CalendarFilter: React.FC<CalendarFilterProps> = ({ onDateRangeChange }) =>
                                 <button
                                     onClick={() => handleFilterTypeChange('week')}
                                     className={`px-4 py-2 rounded-lg text-sm font-semibold transition ${filterType === 'week'
-                                            ? 'bg-orange-100 text-orange-700 border border-orange-300'
-                                            : 'bg-slate-50 text-slate-700 border border-slate-200 hover:bg-slate-100'
+                                        ? 'bg-orange-100 text-orange-700 border border-orange-300'
+                                        : 'bg-slate-50 text-slate-700 border border-slate-200 hover:bg-slate-100'
                                         }`}
                                 >
                                     This Week
@@ -126,8 +126,8 @@ const CalendarFilter: React.FC<CalendarFilterProps> = ({ onDateRangeChange }) =>
                                 <button
                                     onClick={() => handleFilterTypeChange('month')}
                                     className={`px-4 py-2 rounded-lg text-sm font-semibold transition ${filterType === 'month'
-                                            ? 'bg-orange-100 text-orange-700 border border-orange-300'
-                                            : 'bg-slate-50 text-slate-700 border border-slate-200 hover:bg-slate-100'
+                                        ? 'bg-orange-100 text-orange-700 border border-orange-300'
+                                        : 'bg-slate-50 text-slate-700 border border-slate-200 hover:bg-slate-100'
                                         }`}
                                 >
                                     This Month
@@ -135,8 +135,8 @@ const CalendarFilter: React.FC<CalendarFilterProps> = ({ onDateRangeChange }) =>
                                 <button
                                     onClick={() => setFilterType('custom')}
                                     className={`px-4 py-2 rounded-lg text-sm font-semibold transition ${filterType === 'custom'
-                                            ? 'bg-orange-100 text-orange-700 border border-orange-300'
-                                            : 'bg-slate-50 text-slate-700 border border-slate-200 hover:bg-slate-100'
+                                        ? 'bg-orange-100 text-orange-700 border border-orange-300'
+                                        : 'bg-slate-50 text-slate-700 border border-slate-200 hover:bg-slate-100'
                                         }`}
                                 >
                                     Custom Range

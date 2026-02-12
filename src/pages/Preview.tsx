@@ -25,9 +25,11 @@ const Preview: React.FC<PreviewProps> = ({ employees, settings, onUpdateEmployee
   const [cardsPerPage, setCardsPerPage] = useState(10);
   const [batchPages, setBatchPages] = useState<string[]>([]);
   const batchPrintContainerRef = useRef<HTMLDivElement>(null);
+  const sidebarSearchRef = useRef<HTMLInputElement | null>(null);
   const [dateFilterType, setDateFilterType] = useState<DateFilterType>('all');
   const [startDate, setStartDate] = useState<string>('');
   const [endDate, setEndDate] = useState<string>('');
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
 
   const handleDateRangeChange = (start: string, end: string, filterType: DateFilterType) => {
     setStartDate(start);
@@ -228,15 +230,51 @@ const Preview: React.FC<PreviewProps> = ({ employees, settings, onUpdateEmployee
   if (!activeEmployee) return <div className="p-10">No coupons found.</div>;
 
   return (
-    <div className="flex h-full min-h-screen">
+    <div className="flex flex-col lg:flex-row h-full min-h-screen relative">
+      <style>{`
+        @media (max-width: 1023px) {
+          [data-sidebar] {
+            width: 100% !important;
+            height: auto !important;
+            max-height: 80vh !important;
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
+            z-index: 40 !important;
+            border-bottom: 1px solid #e2e8f0 !important;
+            transform: translateY(0) !important;
+          }
+          [data-main-preview] {
+            padding-top: ${sidebarCollapsed ? '80px' : '450px'} !important;
+            width: 100% !important;
+          }
+          .sidebar-content {
+            display: ${sidebarCollapsed ? 'none' : 'block'} !important;
+          }
+        }
+      `}</style>
+
       {/* Sidebar - no-print */}
-      <aside className="w-80 bg-white border-r border-slate-200 flex flex-col no-print h-[calc(100vh-0px)] overflow-hidden">
-        <div className="p-6 border-b border-slate-100 space-y-4">
+      <aside data-sidebar className="w-80 bg-white border-r border-slate-200 flex flex-col no-print lg:h-[calc(100vh-0px)] overflow-hidden">
+        <div className="p-6 border-b border-slate-100 flex justify-between items-center">
           <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2">
             <svg className="w-6 h-6 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z" /></svg>
             Coupon List
           </h2>
-          <div className="flex gap-2">
+          <button
+            onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+            className="lg:hidden p-2 bg-slate-100 rounded-lg text-slate-600"
+          >
+            {sidebarCollapsed ? (
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M19 9l-7 7-7-7" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"></path></svg>
+            ) : (
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M5 15l7-7 7 7" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"></path></svg>
+            )}
+          </button>
+        </div>
+
+        <div className="sidebar-content flex-1 overflow-y-auto">
+          <div className="p-4 md:p-6 border-b border-slate-100 space-y-4">
             <div className="flex-1">
               <label className="block text-xs font-semibold text-slate-700 mb-2">Search</label>
               <div className="relative">
@@ -248,21 +286,29 @@ const Preview: React.FC<PreviewProps> = ({ employees, settings, onUpdateEmployee
                   placeholder="Search ID or Name..."
                   type="text"
                   value={search}
+                  ref={sidebarSearchRef}
                   onChange={(e) => setSearch(e.target.value)}
                 />
               </div>
             </div>
-            <div>
+            <div className="w-full">
               <label className="block text-xs font-semibold text-slate-700 mb-2">Calendar</label>
               <CalendarFilter onDateRangeChange={handleDateRangeChange} />
             </div>
           </div>
-        </div>
 
-        <div className="flex-1 overflow-y-auto">
           {batchPrintMode && (
             <div className="p-4 bg-indigo-50 border-b border-indigo-200 sticky top-0 z-10">
-              <p className="text-xs font-semibold text-indigo-700 mb-3">SELECT COUPONS TO PRINT</p>
+              <div className="flex items-center justify-between mb-3">
+                <p className="text-xs font-semibold text-indigo-700">SELECT COUPONS TO PRINT</p>
+                <button
+                  onClick={() => setSidebarCollapsed(true)}
+                  className="lg:hidden p-2 bg-indigo-100 hover:bg-indigo-200 rounded text-indigo-700"
+                  title="Close coupon list"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+              </div>
               <div className="flex gap-2 mb-4">
                 <button
                   onClick={() => setSelectedEmployees(new Set(employees.map(e => e.id)))}
@@ -359,22 +405,32 @@ const Preview: React.FC<PreviewProps> = ({ employees, settings, onUpdateEmployee
 
         <div className="p-6 border-t border-slate-100 bg-slate-50 no-print">
           {!batchPrintMode && (
-            <button
-              onClick={() => handleMarkReceived(selectedId)}
-              className="w-full flex items-center justify-center gap-2 py-4 px-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl text-sm font-bold transition-shadow shadow-lg shadow-emerald-100 disabled:opacity-50"
-              disabled={activeEmployee.status === CouponStatus.RECEIVED || activeEmployee.status === CouponStatus.SETTLED}
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"></path></svg>
-              Mark as Received
-            </button>
+            <div className="flex gap-2">
+              <button
+                onClick={() => handleMarkReceived(selectedId)}
+                className="flex-1 flex items-center justify-center gap-2 py-3 px-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl text-sm font-bold transition-shadow shadow-lg shadow-emerald-100 disabled:opacity-50"
+                disabled={activeEmployee.status === CouponStatus.RECEIVED || activeEmployee.status === CouponStatus.SETTLED}
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"></path></svg>
+                Mark as Received
+              </button>
+
+              <button
+                onClick={() => setSidebarCollapsed(true)}
+                className="lg:hidden flex items-center justify-center p-3 bg-slate-100 hover:bg-slate-200 rounded-2xl text-slate-700"
+                title="Close coupon list"
+              >
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
           )}
         </div>
       </aside>
 
       {/* Main Preview Area */}
-      <section className="flex-1 overflow-y-auto bg-slate-100 flex flex-col items-center">
+      <section data-main-preview className="flex-1 overflow-y-auto bg-slate-100 flex flex-col items-center">
         {/* Header - no-print */}
-        <div className="w-full max-w-4xl p-8 no-print flex justify-between items-end">
+        <div className="w-full max-w-4xl p-4 lg:p-8 no-print flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
           <div>
             <h2 className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.3em] mb-2">
               {batchPrintMode ? 'Batch Print Mode' : 'Coupon Preview'}
@@ -384,7 +440,15 @@ const Preview: React.FC<PreviewProps> = ({ employees, settings, onUpdateEmployee
             </p>
           </div>
           <div className="flex gap-4">
-            <button className="bg-white border border-slate-200 p-3 rounded-xl text-slate-600 hover:bg-slate-50 transition shadow-sm">
+            <button
+              onClick={() => {
+                setBatchPrintMode(true);
+                setSidebarCollapsed(false);
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+                setTimeout(() => sidebarSearchRef.current?.focus(), 320);
+              }}
+              className="bg-white border border-slate-200 p-3 rounded-xl text-slate-600 hover:bg-slate-50 transition shadow-sm"
+            >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"></path></svg>
             </button>
             {!batchPrintMode && (
@@ -446,8 +510,8 @@ const Preview: React.FC<PreviewProps> = ({ employees, settings, onUpdateEmployee
             ))}
           </div>
         ) : (
-          <div id="coupon-print-area" className="w-full flex justify-center p-8 bg-transparent">
-            <div className="bg-white p-12 rounded-[2.5rem] shadow-2xl border border-slate-200 max-w-4xl w-full relative print:p-0 print:border-none print:shadow-none print:m-0">
+          <div id="coupon-print-area" className="w-full flex justify-center p-4 lg:p-8 bg-transparent">
+            <div className="bg-white p-6 lg:p-12 rounded-[1.5rem] lg:rounded-[2.5rem] shadow-2xl border border-slate-200 max-w-4xl w-full relative print:p-0 print:border-none print:shadow-none print:m-0">
               {/* Loading Overlay */}
               {isRendering && (
                 <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/80 backdrop-blur-[2px] rounded-[2.5rem]">
@@ -470,32 +534,34 @@ const Preview: React.FC<PreviewProps> = ({ employees, settings, onUpdateEmployee
           </div>
         )}
 
-        {/* Info Grid - no-print */}
-        <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-6 w-full max-w-4xl px-8 mb-16 no-print">
-          <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex flex-col justify-center">
-            <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Status</span>
-            <div className="flex items-center gap-3">
-              <span className={`w-3 h-3 rounded-full ${activeEmployee.status === CouponStatus.RECEIVED ? 'bg-emerald-400' :
-                activeEmployee.status === CouponStatus.READY ? 'bg-amber-400' : 'bg-slate-300'
-                }`}></span>
-              <span className="text-sm font-bold text-slate-700">{activeEmployee.status === CouponStatus.PENDING ? 'Pending Distribution' : activeEmployee.status}</span>
+        {/* Info Grid - no-print (hidden in batch print mode) */}
+        {!batchPrintMode && (
+          <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-6 w-full max-w-4xl px-4 lg:px-8 mb-16 no-print">
+            <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex flex-col justify-center">
+              <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Status</span>
+              <div className="flex items-center gap-3">
+                <span className={`w-3 h-3 rounded-full ${activeEmployee.status === CouponStatus.RECEIVED ? 'bg-emerald-400' :
+                  activeEmployee.status === CouponStatus.READY ? 'bg-amber-400' : 'bg-slate-300'
+                  }`}></span>
+                <span className="text-sm font-bold text-slate-700">{activeEmployee.status === CouponStatus.PENDING ? 'Pending Distribution' : activeEmployee.status}</span>
+              </div>
+            </div>
+            <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex flex-col justify-center">
+              <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Coupon Value</span>
+              <div className="flex items-center gap-3">
+                <svg className="w-5 h-5 text-emerald-500" fill="currentColor" viewBox="0 0 20 20"><path d="M8.5 3.5a.5.5 0 11-1 0 .5.5 0 011 0zm-2 0a.5.5 0 11-1 0 .5.5 0 011 0z" clipRule="evenodd"></path></svg>
+                <span className="text-sm font-bold text-emerald-600">{formatRupees(settings.amount)}</span>
+              </div>
+            </div>
+            <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex flex-col justify-center">
+              <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Valid For</span>
+              <div className="flex items-center gap-3">
+                <svg className="w-5 h-5 text-emerald-500" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v2h16V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a2 2 0 002 2h8a2 2 0 002-2H6z" clipRule="evenodd"></path></svg>
+                <span className="text-sm font-bold text-slate-700">{settings.validityPeriod} days</span>
+              </div>
             </div>
           </div>
-          <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex flex-col justify-center">
-            <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Coupon Value</span>
-            <div className="flex items-center gap-3">
-              <svg className="w-5 h-5 text-emerald-500" fill="currentColor" viewBox="0 0 20 20"><path d="M8.5 3.5a.5.5 0 11-1 0 .5.5 0 011 0zm-2 0a.5.5 0 11-1 0 .5.5 0 011 0z" clipRule="evenodd"></path></svg>
-              <span className="text-sm font-bold text-emerald-600">{formatRupees(settings.amount)}</span>
-            </div>
-          </div>
-          <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex flex-col justify-center">
-            <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Valid For</span>
-            <div className="flex items-center gap-3">
-              <svg className="w-5 h-5 text-emerald-500" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v2h16V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a2 2 0 002 2h8a2 2 0 002-2H6z" clipRule="evenodd"></path></svg>
-              <span className="text-sm font-bold text-slate-700">{settings.validityPeriod} days</span>
-            </div>
-          </div>
-        </div>
+        )}
       </section>
 
       <style>{`
@@ -514,11 +580,16 @@ const Preview: React.FC<PreviewProps> = ({ employees, settings, onUpdateEmployee
         .page-container {
           width: 100%;
           max-width: 800px;
-          aspect-ratio: 1240 / 1754;
+          aspect-ratio: 210 / 297;
           margin-bottom: 2rem;
         }
         
         @media print {
+          @page { 
+            size: A4 portrait;
+            margin: 0;
+            padding: 0;
+          }
           body * { 
             visibility: hidden; 
           }
@@ -536,9 +607,22 @@ const Preview: React.FC<PreviewProps> = ({ employees, settings, onUpdateEmployee
             left: 0; 
             top: 0; 
             width: 100%; 
+            height: 100vh;
             padding: 0; 
             margin: 0;
             background: white !important;
+            display: flex !important;
+            align-items: center;
+            justify-content: center;
+          }
+          #coupon-print-area > div {
+            width: 100% !important;
+            max-width: none !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            border: none !important;
+            box-shadow: none !important;
+            border-radius: 0 !important;
           }
           #batch-print-area {
             position: absolute;
@@ -551,20 +635,27 @@ const Preview: React.FC<PreviewProps> = ({ employees, settings, onUpdateEmployee
             gap: 0 !important;
           }
           .page-container {
-            width: 100% !important;
+            width: 210mm !important;
+            height: 297mm !important;
             max-width: none !important;
             margin: 0 !important;
             border: none !important;
             box-shadow: none !important;
             page-break-after: always;
+            display: block !important;
+          }
+          .page-container img {
+            width: 100% !important;
+            height: 100% !important;
+            image-rendering: -webkit-optimize-contrast;
+            image-rendering: crisp-edges;
           }
           #coupon-print-area canvas {
+            width: 100% !important;
+            height: auto !important;
             border-radius: 0 !important;
             box-shadow: none !important;
-          }
-          @page { 
-            size: A4 portrait;
-            margin: 0;
+            image-rendering: -webkit-optimize-contrast;
           }
         }
       `}</style>
