@@ -5,9 +5,10 @@ interface SidebarProps {
     currentView: View;
     onNavigate: (view: View) => void;
     onLogout: () => void;
+    className?: string;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ currentView, onNavigate, onLogout }) => {
+const Sidebar: React.FC<SidebarProps> = ({ currentView, onNavigate, onLogout, className = '' }) => {
     const [isCollapsed, setIsCollapsed] = useState(false);
 
     const navItems = [
@@ -88,7 +89,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onNavigate, onLogout }) 
     return (
         <aside
             className={`hidden desktop:flex flex-col bg-gradient-to-b from-slate-900 to-slate-800 text-white h-screen sticky top-0 overflow-y-auto shadow-xl transition-all duration-300 ${isCollapsed ? 'w-20' : 'w-64'
-                }`}
+                } ${className}`}
         >
             {/* Header with Logo and Collapse Button */}
             <div className="p-6 border-b border-slate-700">

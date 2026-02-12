@@ -225,11 +225,11 @@ const App: React.FC = () => {
     }
 
     return (
-        <div className="flex flex-col desktop:flex-row h-screen">
-            <Sidebar currentView={currentView} onNavigate={handleNavigate} onLogout={handleLogout} />
-            <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden">
+        <div className="flex flex-col desktop:flex-row h-screen w-full">
+            <Sidebar currentView={currentView} onNavigate={handleNavigate} onLogout={handleLogout} className="hidden desktop:block" />
+            <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden w-full">
                 <MobileHeader onNavigate={handleNavigate} onLogout={handleLogout} />
-                <main className="flex-1 overflow-y-auto bg-slate-50 pb-20 desktop:pb-0">
+                <main className="flex-1 overflow-y-auto bg-slate-50 pb-20 desktop:pb-0 w-full">
                     {currentView === View.DASHBOARD && settings && (
                         <Dashboard
                             employees={employees}
