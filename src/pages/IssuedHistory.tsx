@@ -218,6 +218,82 @@ const IssuedHistory: React.FC<IssuedHistoryProps> = ({ employees, settings, onSe
         setSelectedForPrint(newSelected);
     };
 
+    const toggleSelectAll = () => {
+        if (selectedForPrint.size === paginatedEmployees.length) {
+            setSelectedForPrint(new Set());
+        } else {
+            const allIds = paginatedEmployees.map(emp => emp.id);
+            setSelectedForPrint(new Set(allIds));
+        }
+    };
+
+    const handleBulkMarkReceived = async () => {
+        if (selectedForPrint.size === 0) {
+            alert('Please select at least one coupon');
+            return;
+        }
+
+        if (!window.confirm(`Are you sure you want to mark ${selectedForPrint.size} coupons as received?`)) {
+            return;
+        }
+
+        setIsPrinting(true);
+        try {
+            const { error } = await supabase
+                .from('coupons')
+                .update({
+                    status: CouponStatus.RECEIVED,
+                    received_at: new Date().toISOString()
+                })
+                .in('id', Array.from(selectedForPrint));
+
+            if (error) throw error;
+
+            alert('Selected coupons marked as received successfully!');
+            setSelectedForPrint(new Set());
+            if (typeof onRefresh === 'function') {
+                await onRefresh();
+            }
+        } catch (error) {
+            console.error('Error in bulk update:', error);
+            alert('Failed to update coupons');
+        } finally {
+            setIsPrinting(false);
+        }
+    };
+
+    const handleBulkDelete = async () => {
+        if (selectedForPrint.size === 0) {
+            alert('Please select at least one coupon');
+            return;
+        }
+
+        if (!window.confirm(`Are you sure you want to delete ${selectedForPrint.size} coupons? This action cannot be undone.`)) {
+            return;
+        }
+
+        setIsPrinting(true);
+        try {
+            const { error } = await supabase
+                .from('coupons')
+                .delete()
+                .in('id', Array.from(selectedForPrint));
+
+            if (error) throw error;
+
+            alert('Selected coupons deleted successfully!');
+            setSelectedForPrint(new Set());
+            if (typeof onRefresh === 'function') {
+                await onRefresh();
+            }
+        } catch (error) {
+            console.error('Error in bulk delete:', error);
+            alert('Failed to delete coupons');
+        } finally {
+            setIsPrinting(false);
+        }
+    };
+
     const getSelectedCoupons = () => {
         return employees.filter(emp => selectedForPrint.has(emp.id));
     };
@@ -441,7 +517,18 @@ const IssuedHistory: React.FC<IssuedHistoryProps> = ({ employees, settings, onSe
                                 <table className="w-full">
                                     <thead className="bg-slate-50 border-b border-slate-200">
                                         <tr>
-                                            <th className="px-6 py-3 text-center text-xs font-bold text-slate-700 uppercase tracking-wider">Select</th>
+                                            <th className="px-6 py-3 text-center">
+                                                <button
+                                                    onClick={toggleSelectAll}
+                                                    title={selectedForPrint.size === paginatedEmployees.length ? "Deselect All" : "Select All"}
+                                                    className={`px-3 py-2 rounded-lg text-xs font-bold transition ${selectedForPrint.size === paginatedEmployees.length && paginatedEmployees.length > 0
+                                                        ? 'bg-blue-500 text-white'
+                                                        : 'bg-slate-100 text-slate-700 hover:bg-blue-100'
+                                                        }`}
+                                                >
+                                                    {selectedForPrint.size === paginatedEmployees.length && paginatedEmployees.length > 0 ? '✓' : '○'}
+                                                </button>
+                                            </th>
                                             <th className="px-6 py-3 text-left text-xs font-bold text-slate-700 uppercase tracking-wider">Employee</th>
                                             <th className="px-6 py-3 text-left text-xs font-bold text-slate-700 uppercase tracking-wider">Emp ID</th>
                                             <th className="px-6 py-3 text-left text-xs font-bold text-slate-700 uppercase tracking-wider">Serial</th>
@@ -661,12 +748,30 @@ const IssuedHistory: React.FC<IssuedHistoryProps> = ({ employees, settings, onSe
 
                                 {/* Action Buttons */}
                                 <div className="space-y-3">
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <button
+                                            onClick={handleBulkMarkReceived}
+                                            disabled={isPrinting || selectedForPrint.size === 0}
+                                            className="py-3 px-4 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 text-white font-bold rounded-lg transition shadow-md disabled:cursor-not-allowed flex items-center justify-center gap-2 text-xs"
+                                        >
+                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"></path></svg>
+                                            Mark Received
+                                        </button>
+                                        <button
+                                            onClick={handleBulkDelete}
+                                            disabled={isPrinting || selectedForPrint.size === 0}
+                                            className="py-3 px-4 bg-red-600 hover:bg-red-700 disabled:bg-slate-300 text-white font-bold rounded-lg transition shadow-md disabled:cursor-not-allowed flex items-center justify-center gap-2 text-xs"
+                                        >
+                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"></path></svg>
+                                            Delete Selected
+                                        </button>
+                                    </div>
                                     <button
                                         onClick={handleBatchPrint}
                                         disabled={isPrinting || selectedForPrint.size === 0}
                                         className="w-full py-3 px-4 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 disabled:from-slate-300 disabled:to-slate-300 text-white font-bold rounded-lg transition shadow-md disabled:cursor-not-allowed flex items-center justify-center"
                                     >
-                                        <svg className="w-4 h-4 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"></path></svg>
+                                        <svg className="w-4 h-4 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4H9a2 2 0 01-2-2v-4a2 2 0 012-2h6a2 2 0 012 2v4a2 2 0 01-2 2zm-6-4h.01M12 8v.01M15 8v.01" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"></path></svg>
                                         Print Selected
                                     </button>
                                     <button

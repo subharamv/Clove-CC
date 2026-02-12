@@ -173,6 +173,50 @@ const Pending: React.FC<PendingProps> = ({ employees, settings, onSelectCoupon, 
         setSelectedForPrint(newSelected);
     };
 
+    const toggleSelectAll = () => {
+        if (selectedForPrint.size === paginatedCoupons.length) {
+            setSelectedForPrint(new Set());
+        } else {
+            const allIds = paginatedCoupons.map(emp => emp.id);
+            setSelectedForPrint(new Set(allIds));
+        }
+    };
+
+    const handleBulkMarkReceived = async () => {
+        if (selectedForPrint.size === 0) {
+            alert('Please select at least one coupon');
+            return;
+        }
+
+        if (!window.confirm(`Are you sure you want to mark ${selectedForPrint.size} coupons as received?`)) {
+            return;
+        }
+
+        setIsPrinting(true); // Reuse isPrinting for loading state or add a new one
+        try {
+            const { error } = await supabase
+                .from('coupons')
+                .update({
+                    status: CouponStatus.RECEIVED,
+                    received_at: new Date().toISOString()
+                })
+                .in('id', Array.from(selectedForPrint));
+
+            if (error) throw error;
+
+            alert('Selected coupons marked as received successfully!');
+            setSelectedForPrint(new Set());
+            if (typeof onRefresh === 'function') {
+                await onRefresh();
+            }
+        } catch (error) {
+            console.error('Error in bulk update:', error);
+            alert('Failed to update coupons');
+        } finally {
+            setIsPrinting(false);
+        }
+    };
+
     const getSelectedCoupons = () => {
         return filteredCoupons.filter(emp => selectedForPrint.has(emp.id));
     };
@@ -396,7 +440,18 @@ const Pending: React.FC<PendingProps> = ({ employees, settings, onSelectCoupon, 
                                         <table className="w-full">
                                             <thead className="bg-slate-50 border-b border-slate-200">
                                                 <tr>
-                                                    <th className="px-6 py-3 text-center text-xs font-bold text-slate-700 uppercase tracking-wider">Select</th>
+                                                    <th className="px-6 py-3 text-center">
+                                                        <button
+                                                            onClick={toggleSelectAll}
+                                                            title={selectedForPrint.size === paginatedCoupons.length ? "Deselect All" : "Select All"}
+                                                            className={`px-3 py-2 rounded-lg text-xs font-bold transition ${selectedForPrint.size === paginatedCoupons.length && paginatedCoupons.length > 0
+                                                                ? 'bg-blue-500 text-white'
+                                                                : 'bg-slate-100 text-slate-700 hover:bg-blue-100'
+                                                                }`}
+                                                        >
+                                                            {selectedForPrint.size === paginatedCoupons.length && paginatedCoupons.length > 0 ? '✓' : '○'}
+                                                        </button>
+                                                    </th>
                                                     <th className="px-6 py-3 text-left text-xs font-bold text-slate-700 uppercase tracking-wider">Employee</th>
                                                     <th className="px-6 py-3 text-left text-xs font-bold text-slate-700 uppercase tracking-wider">Emp ID</th>
                                                     <th className="px-6 py-3 text-left text-xs font-bold text-slate-700 uppercase tracking-wider">Serial</th>
@@ -613,6 +668,14 @@ const Pending: React.FC<PendingProps> = ({ employees, settings, onSelectCoupon, 
 
                                 {/* Action Buttons */}
                                 <div className="space-y-3">
+                                    <button
+                                        onClick={handleBulkMarkReceived}
+                                        disabled={isPrinting || selectedForPrint.size === 0}
+                                        className="w-full py-3 px-4 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 text-white font-bold rounded-lg transition shadow-md disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                                    >
+                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"></path></svg>
+                                        Mark Received
+                                    </button>
                                     <button
                                         onClick={handleBatchPrint}
                                         disabled={isPrinting || selectedForPrint.size === 0}

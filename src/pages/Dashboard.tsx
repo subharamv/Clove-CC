@@ -40,6 +40,8 @@ const Dashboard: React.FC<DashboardProps> = ({
   });
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
+  const [selectedRecentCoupons, setSelectedRecentCoupons] = useState<Set<string>>(new Set());
+
   const getAvailableCouponAmounts = () => {
     return settings.couponAmounts && settings.couponAmounts.length > 0
       ? settings.couponAmounts
@@ -51,10 +53,64 @@ const Dashboard: React.FC<DashboardProps> = ({
     return amounts.find(a => a.isDefault) || amounts[0];
   };
 
-  const filteredEmployees = employees.filter(emp =>
-    emp.name.toLowerCase().includes(search.toLowerCase()) ||
-    emp.empId.toLowerCase().includes(search.toLowerCase())
-  );
+  const filteredEmployees = employees
+    .filter(emp =>
+      emp.name.toLowerCase().includes(search.toLowerCase()) ||
+      emp.empId.toLowerCase().includes(search.toLowerCase())
+    )
+    .slice(0, 10);
+
+  const toggleSelectRecent = (id: string) => {
+    const newSelected = new Set(selectedRecentCoupons);
+    if (newSelected.has(id)) {
+      newSelected.delete(id);
+    } else {
+      newSelected.add(id);
+    }
+    setSelectedRecentCoupons(newSelected);
+  };
+
+  const toggleSelectAllRecent = () => {
+    if (selectedRecentCoupons.size === filteredEmployees.length) {
+      setSelectedRecentCoupons(new Set());
+    } else {
+      const allIds = filteredEmployees.map(emp => emp.id);
+      setSelectedRecentCoupons(new Set(allIds));
+    }
+  };
+
+  const handleBulkMarkReceivedRecent = async () => {
+    if (selectedRecentCoupons.size === 0) {
+      alert('Please select at least one coupon');
+      return;
+    }
+
+    if (!window.confirm(`Are you sure you want to mark ${selectedRecentCoupons.size} coupons as received?`)) {
+      return;
+    }
+
+    setUploading(true);
+    try {
+      const { error } = await supabase
+        .from('coupons')
+        .update({
+          status: CouponStatus.RECEIVED,
+          received_at: new Date().toISOString()
+        })
+        .in('id', Array.from(selectedRecentCoupons));
+
+      if (error) throw error;
+
+      alert('Selected coupons marked as received successfully!');
+      setSelectedRecentCoupons(new Set());
+      // dashboard doesn't have onRefresh, usually it's handled by parent re-fetching employees
+    } catch (error) {
+      console.error('Error in bulk update:', error);
+      alert('Failed to update coupons');
+    } finally {
+      setUploading(false);
+    }
+  };
 
   const stats = {
     totalIssued: employees.length,
@@ -646,25 +702,64 @@ const Dashboard: React.FC<DashboardProps> = ({
       {/* Recent Coupons Table */}
       <section className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
         <div className="p-8 border-b border-slate-50 flex items-center justify-between">
-          <h2 className="text-lg font-bold text-slate-900">Recent Coupons</h2>
-          <div className="relative w-80">
-            <span className="absolute inset-y-0 left-0 pl-4 flex items-center text-slate-400">
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" /></svg>
-            </span>
-            <input
-              className="w-full pl-12 pr-4 py-3 border border-slate-100 bg-slate-50 rounded-xl text-sm focus:ring-orange-500 focus:border-orange-500 transition"
-              placeholder="Search employee..."
-              type="text"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
+          <div className="flex items-center gap-4">
+            <h2 className="text-lg font-bold text-slate-900">Recent Coupons</h2>
+            <button
+              onClick={onNavigateToIssuedHistory}
+              className="px-4 py-1.5 bg-orange-50 hover:bg-orange-100 text-orange-600 rounded-lg text-xs font-bold transition flex items-center gap-1 border border-orange-100"
+            >
+              View All
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" /></svg>
+            </button>
+          </div>
+          <div className="flex items-center gap-4">
+            {selectedRecentCoupons.size > 0 && (
+              <div className="flex items-center gap-2 animate-in fade-in slide-in-from-right-4">
+                <span className="text-xs font-bold text-slate-500">{selectedRecentCoupons.size} Selected</span>
+                <button
+                  onClick={handleBulkMarkReceivedRecent}
+                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-lg shadow-emerald-100 transition"
+                >
+                  Mark Received
+                </button>
+                <button
+                  onClick={() => setSelectedRecentCoupons(new Set())}
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl text-xs font-bold transition"
+                >
+                  Clear
+                </button>
+              </div>
+            )}
+            <div className="relative w-64">
+              <span className="absolute inset-y-0 left-0 pl-4 flex items-center text-slate-400">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" /></svg>
+              </span>
+              <input
+                className="w-full pl-12 pr-4 py-2.5 border border-slate-100 bg-slate-50 rounded-xl text-sm focus:ring-orange-500 focus:border-orange-500 transition"
+                placeholder="Search employee..."
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+            </div>
           </div>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-slate-50 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                <th className="px-8 py-5">Sl No</th>
+                <th className="px-8 py-5 w-16">
+                  <button
+                    onClick={toggleSelectAllRecent}
+                    title={selectedRecentCoupons.size === filteredEmployees.length ? "Deselect All" : "Select All"}
+                    className={`w-6 h-6 rounded flex items-center justify-center border-2 transition ${selectedRecentCoupons.size === filteredEmployees.length && filteredEmployees.length > 0
+                        ? 'bg-blue-500 border-blue-500 text-white'
+                        : 'bg-white border-slate-200 text-transparent hover:border-blue-400'
+                      }`}
+                  >
+                    {selectedRecentCoupons.size === filteredEmployees.length && filteredEmployees.length > 0 ? '✓' : ''}
+                  </button>
+                </th>
                 <th className="px-8 py-5">Employee Name</th>
                 <th className="px-8 py-5">Employee ID</th>
                 <th className="px-8 py-5">Serial Code</th>
@@ -675,14 +770,24 @@ const Dashboard: React.FC<DashboardProps> = ({
             <tbody className="divide-y divide-slate-50 text-sm">
               {filteredEmployees.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-8 py-10 text-center text-slate-400">
+                  <td colSpan={7} className="px-8 py-10 text-center text-slate-400">
                     {employees.length === 0 ? 'No coupons issued yet. Upload CSV to get started.' : 'No results found.'}
                   </td>
                 </tr>
               ) : (
-                filteredEmployees.map((emp, idx) => (
-                  <tr key={emp.id} className="hover:bg-slate-50 transition">
-                    <td className="px-8 py-5 text-slate-400">{(idx + 1).toString().padStart(2, '0')}</td>
+                filteredEmployees.map((emp) => (
+                  <tr key={emp.id} className={`hover:bg-slate-50 transition ${selectedRecentCoupons.has(emp.id) ? 'bg-blue-50/50' : ''}`}>
+                    <td className="px-8 py-5">
+                      <button
+                        onClick={() => toggleSelectRecent(emp.id)}
+                        className={`w-5 h-5 rounded flex items-center justify-center border-2 transition ${selectedRecentCoupons.has(emp.id)
+                            ? 'bg-blue-500 border-blue-500 text-white'
+                            : 'bg-white border-slate-200 text-transparent hover:border-blue-400'
+                          }`}
+                      >
+                        {selectedRecentCoupons.has(emp.id) ? '✓' : ''}
+                      </button>
+                    </td>
                     <td className="px-8 py-5 font-medium text-slate-900">{emp.name}</td>
                     <td className="px-8 py-5 text-slate-500">{emp.empId}</td>
                     <td className="px-8 py-5 font-mono text-xs text-slate-400">{emp.serialCode}</td>
