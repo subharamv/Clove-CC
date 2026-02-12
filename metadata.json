@@ -1,0 +1,7 @@
+{
+  "name": "Clovians Cafeteria Coupon Management",
+  "description": "An enterprise-grade dashboard for managing, issuing, and printing cafeteria coupons for employees. Features live previews, bulk issuance, and system-wide configuration.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
