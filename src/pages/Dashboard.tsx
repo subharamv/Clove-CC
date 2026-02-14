@@ -347,8 +347,8 @@ const Dashboard: React.FC<DashboardProps> = ({
   const downloadCSVTTemplate = () => {
     const csvContent = [
       'name,empId,otHours,amount,issueDate,validTill,serialCode,status',
-      `John Doe,EMP001,8,${settings.amount},${new Date().toLocaleDateString()},${new Date(Date.now() + settings.validityPeriod * 24 * 60 * 60 * 1000).toLocaleDateString()},SERIAL001,ISSUED`,
-      `Jane Smith,EMP002,6,${settings.amount},${new Date().toLocaleDateString()},${new Date(Date.now() + settings.validityPeriod * 24 * 60 * 60 * 1000).toLocaleDateString()},SERIAL002,ISSUED`
+      `John Doe,EMP001,8,${settings.amount},${formatDateToDDMMYYYY(new Date())},${formatDateToDDMMYYYY(new Date(Date.now() + settings.validityPeriod * 24 * 60 * 60 * 1000))},SERIAL001,ISSUED`,
+      `Jane Smith,EMP002,6,${settings.amount},${formatDateToDDMMYYYY(new Date())},${formatDateToDDMMYYYY(new Date(Date.now() + settings.validityPeriod * 24 * 60 * 60 * 1000))},SERIAL002,ISSUED`
     ].join('\n');
 
     const blob = new Blob([csvContent], { type: 'text/csv' });

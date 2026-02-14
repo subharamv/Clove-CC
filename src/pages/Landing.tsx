@@ -3,6 +3,8 @@ import { View, Employee } from '../types';
 import { supabase } from '../supabaseClient';
 import { formatRupees } from '../utils/currencyUtils';
 
+import { formatDateToDDMMYYYY } from '../utils/dateFormatUtils';
+
 interface LandingProps {
   onNavigate: (view: View) => void;
 }
@@ -172,7 +174,7 @@ const Landing: React.FC<LandingProps> = ({ onNavigate }) => {
             </div>
           ) : (
             <>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 desktop:grid-cols-5 gap-4">
                 {recentCoupons.map((coupon) => (
                   <div
                     key={coupon.id}
@@ -209,7 +211,7 @@ const Landing: React.FC<LandingProps> = ({ onNavigate }) => {
 
                     <div className="pt-3 border-t border-gray-200">
                       <p className="text-[10px] text-gray-400">
-                        Issued: {coupon.created_at ? new Date(coupon.created_at).toLocaleDateString() : 'N/A'}
+                        Issued: {coupon.created_at ? formatDateToDDMMYYYY(coupon.created_at) : 'N/A'}
                       </p>
                     </div>
                   </div>

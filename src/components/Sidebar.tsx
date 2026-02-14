@@ -88,7 +88,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onNavigate, onLogout, cl
 
     return (
         <aside
-            className={`hidden desktop:flex flex-col bg-gradient-to-b from-slate-900 to-slate-800 text-white h-screen sticky top-0 overflow-y-auto shadow-xl transition-all duration-300 ${isCollapsed ? 'w-20' : 'w-64'
+            className={`hidden desktop:flex flex-col bg-gradient-to-b from-slate-900 to-slate-800 text-white h-screen sticky top-0 overflow-y-auto shadow-xl transition-all duration-300 no-print ${isCollapsed ? 'w-20' : 'w-64'
                 } ${className}`}
         >
             {/* Header with Logo and Collapse Button */}

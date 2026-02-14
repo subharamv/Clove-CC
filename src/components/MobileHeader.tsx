@@ -10,7 +10,7 @@ const MobileHeader: React.FC<MobileHeaderProps> = ({ onNavigate, onLogout }) => 
     const [isMenuOpen, setIsMenuOpen] = useState(false);
 
     return (
-        <header className="flex desktop:hidden bg-white border-b border-slate-100 p-4 sticky top-0 z-50 items-center justify-between shadow-sm">
+        <header className="flex desktop:hidden bg-white border-b border-slate-100 p-4 sticky top-0 z-50 items-center justify-between shadow-sm no-print">
             <div className="flex items-center gap-2" onClick={() => onNavigate(View.DASHBOARD)}>
                 <div className="w-8 h-8 bg-orange-600 rounded-lg flex items-center justify-center font-bold text-sm">
                     🍽️

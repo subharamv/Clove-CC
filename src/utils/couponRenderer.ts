@@ -1,6 +1,7 @@
 import { Employee, SystemSettings } from '../types';
 import QRCode from 'qrcode';
 import { formatRupees } from './currencyUtils';
+import { formatDateToDDMMYYYY } from './dateFormatUtils';
 
 /**
  * Simple image cache to avoid reloading same template multiple times
@@ -23,7 +24,7 @@ export class CouponRenderer {
         const context = this.canvas.getContext('2d', { alpha: false });
         if (!context) throw new Error('Could not get canvas context');
         this.ctx = context;
-        
+
         // Improve image smoothing
         this.ctx.imageSmoothingEnabled = true;
         this.ctx.imageSmoothingQuality = 'high';
@@ -50,13 +51,13 @@ export class CouponRenderer {
             img.onload = () => {
                 this.templateImage = img;
                 imageCache[templateUrl] = img;
-                
+
                 // Set canvas to original image dimensions for max quality
                 if (img.width > 0) {
                     this.canvas.width = img.width;
                     this.canvas.height = img.height;
                 }
-                
+
                 resolve();
             };
 
@@ -165,7 +166,7 @@ export class CouponRenderer {
         // Draw date
         this.ctx.font = `${positions.date.fontWeight} ${positions.date.fontSize}px Inter, sans-serif`;
         this.ctx.fillStyle = positions.date.color;
-        this.ctx.fillText(employee.issueDate, positions.date.x, positions.date.y);
+        this.ctx.fillText(formatDateToDDMMYYYY(employee.issueDate), positions.date.x, positions.date.y);
 
         // Draw serial code
         this.ctx.font = `${positions.serial.fontWeight} ${positions.serial.fontSize}px monospace`;
@@ -257,9 +258,8 @@ export async function renderMultipleCouponsA4(
 ): Promise<HTMLCanvasElement[]> {
     const canvases: HTMLCanvasElement[] = [];
 
-    // TARGET DPI for max quality (User requested 1200)
-    // Note: Browsers may have canvas size limits. 600-1200 is ultra-high.
-    const TARGET_DPI = 1200;
+    // TARGET DPI for max quality (300 is standard for high-quality print)
+    const TARGET_DPI = 600;
     const SCALE_FACTOR = TARGET_DPI / 96;
 
     // A4 dimensions in pixels
@@ -306,7 +306,7 @@ export async function renderMultipleCouponsA4(
 
     // Original coupon base size is 1048x598, but we now use original image size
     // We scale the coupon to fit the card slot while maintaining aspect ratio
-    
+
     for (let pageIdx = 0; pageIdx < Math.ceil(employees.length / cardsPerPage); pageIdx++) {
         const pageCanvas = document.createElement('canvas');
         pageCanvas.width = a4Width;
@@ -317,7 +317,7 @@ export async function renderMultipleCouponsA4(
         // White background
         ctx.fillStyle = '#ffffff';
         ctx.fillRect(0, 0, a4Width, a4Height);
-        
+
         // High quality rendering
         ctx.imageSmoothingEnabled = true;
         ctx.imageSmoothingQuality = 'high';

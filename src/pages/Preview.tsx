@@ -230,7 +230,7 @@ const Preview: React.FC<PreviewProps> = ({ employees, settings, onUpdateEmployee
   if (!activeEmployee) return <div className="p-10">No coupons found.</div>;
 
   return (
-    <div className="flex flex-col lg:flex-row h-full min-h-screen relative">
+    <div className="flex flex-col desktop:flex-row h-full min-h-screen relative">
       <style>{`
         @media (max-width: 1023px) {
           [data-sidebar] {
@@ -255,7 +255,7 @@ const Preview: React.FC<PreviewProps> = ({ employees, settings, onUpdateEmployee
       `}</style>
 
       {/* Sidebar - no-print */}
-      <aside data-sidebar className="w-80 bg-white border-r border-slate-200 flex flex-col no-print lg:h-[calc(100vh-0px)] overflow-hidden">
+      <aside data-sidebar className="w-80 bg-white border-r border-slate-200 flex flex-col no-print desktop:h-[calc(100vh-0px)] overflow-hidden">
         <div className="p-6 border-b border-slate-100 flex justify-between items-center">
           <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2">
             <svg className="w-6 h-6 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z" /></svg>
@@ -263,7 +263,7 @@ const Preview: React.FC<PreviewProps> = ({ employees, settings, onUpdateEmployee
           </h2>
           <button
             onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-            className="lg:hidden p-2 bg-slate-100 rounded-lg text-slate-600"
+            className="desktop:hidden p-2 bg-slate-100 rounded-lg text-slate-600"
           >
             {sidebarCollapsed ? (
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M19 9l-7 7-7-7" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"></path></svg>
@@ -417,7 +417,7 @@ const Preview: React.FC<PreviewProps> = ({ employees, settings, onUpdateEmployee
 
               <button
                 onClick={() => setSidebarCollapsed(true)}
-                className="lg:hidden flex items-center justify-center p-3 bg-slate-100 hover:bg-slate-200 rounded-2xl text-slate-700"
+                className="desktop:hidden flex items-center justify-center p-3 bg-slate-100 hover:bg-slate-200 rounded-2xl text-slate-700"
                 title="Close coupon list"
               >
                 <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
@@ -430,7 +430,7 @@ const Preview: React.FC<PreviewProps> = ({ employees, settings, onUpdateEmployee
       {/* Main Preview Area */}
       <section data-main-preview className="flex-1 overflow-y-auto bg-slate-100 flex flex-col items-center">
         {/* Header - no-print */}
-        <div className="w-full max-w-4xl p-4 lg:p-8 no-print flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
+        <div className="w-full max-w-4xl p-4 desktop:p-8 no-print flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
           <div>
             <h2 className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.3em] mb-2">
               {batchPrintMode ? 'Batch Print Mode' : 'Coupon Preview'}
@@ -462,7 +462,7 @@ const Preview: React.FC<PreviewProps> = ({ employees, settings, onUpdateEmployee
             )}
             <button
               onClick={batchPrintMode ? handleBatchPrint : handlePrint}
-              disabled={batchPrintMode && selectedEmployees.size === 0}
+              disabled={(batchPrintMode && selectedEmployees.size === 0) || isRendering}
               className="flex items-center gap-2 px-8 py-3 bg-white border border-slate-300 text-slate-700 rounded-xl text-sm font-bold hover:bg-slate-50 shadow-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"></path></svg>
@@ -510,8 +510,8 @@ const Preview: React.FC<PreviewProps> = ({ employees, settings, onUpdateEmployee
             ))}
           </div>
         ) : (
-          <div id="coupon-print-area" className="w-full flex justify-center p-4 lg:p-8 bg-transparent">
-            <div className="bg-white p-6 lg:p-12 rounded-[1.5rem] lg:rounded-[2.5rem] shadow-2xl border border-slate-200 max-w-4xl w-full relative print:p-0 print:border-none print:shadow-none print:m-0">
+          <div id="coupon-print-area" className="w-full flex justify-center p-4 desktop:p-8 bg-transparent">
+            <div className="bg-white p-6 desktop:p-12 rounded-[1.5rem] desktop:rounded-[2.5rem] shadow-2xl border border-slate-200 max-w-4xl w-full relative print:p-0 print:border-none print:shadow-none print:m-0">
               {/* Loading Overlay */}
               {isRendering && (
                 <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/80 backdrop-blur-[2px] rounded-[2.5rem]">
@@ -536,7 +536,7 @@ const Preview: React.FC<PreviewProps> = ({ employees, settings, onUpdateEmployee
 
         {/* Info Grid - no-print (hidden in batch print mode) */}
         {!batchPrintMode && (
-          <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-6 w-full max-w-4xl px-4 lg:px-8 mb-16 no-print">
+          <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-6 w-full max-w-4xl px-4 desktop:px-8 mb-16 no-print">
             <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex flex-col justify-center">
               <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Status</span>
               <div className="flex items-center gap-3">
@@ -582,79 +582,72 @@ const Preview: React.FC<PreviewProps> = ({ employees, settings, onUpdateEmployee
           max-width: 800px;
           aspect-ratio: 210 / 297;
           margin-bottom: 2rem;
+          background: white;
         }
         
         @media print {
           @page { 
             size: A4 portrait;
             margin: 0;
-            padding: 0;
           }
+          
+          html, body {
+            margin: 0 !important;
+            padding: 0 !important;
+            height: 100% !important;
+            width: 100% !important;
+            overflow: visible !important;
+          }
+
           body * { 
             visibility: hidden; 
           }
-          #coupon-print-area, #coupon-print-area * { 
-            visibility: visible; 
-          }
+          
+          #coupon-print-area, #coupon-print-area *,
           #batch-print-area, #batch-print-area * { 
             visibility: visible; 
           }
-          .no-print {
+
+          .no-print, aside, header, .sidebar-content {
             display: none !important;
           }
-          #coupon-print-area {
-            position: absolute; 
-            left: 0; 
-            top: 0; 
-            width: 100%; 
-            height: 100vh;
-            padding: 0; 
-            margin: 0;
-            background: white !important;
-            display: flex !important;
-            align-items: center;
-            justify-content: center;
-          }
-          #coupon-print-area > div {
-            width: 100% !important;
-            max-width: none !important;
-            padding: 0 !important;
+
+          #batch-print-area, #coupon-print-area {
+            position: absolute !important;
+            left: 0 !important;
+            top: 0 !important;
+            width: 210mm !important;
             margin: 0 !important;
-            border: none !important;
-            box-shadow: none !important;
-            border-radius: 0 !important;
-          }
-          #batch-print-area {
-            position: absolute;
-            left: 0;
-            top: 0;
-            width: 100%;
-            padding: 0;
-            margin: 0;
+            padding: 0 !important;
             background: white !important;
-            gap: 0 !important;
+            z-index: 9999;
           }
+
           .page-container {
             width: 210mm !important;
             height: 297mm !important;
             max-width: none !important;
             margin: 0 !important;
+            padding: 0 !important;
             border: none !important;
             box-shadow: none !important;
             page-break-after: always;
             display: block !important;
+            position: relative !important;
           }
+
           .page-container img {
             width: 100% !important;
-            height: 100% !important;
+            height: auto !important;
+            display: block !important;
             image-rendering: -webkit-optimize-contrast;
             image-rendering: crisp-edges;
           }
+
           #coupon-print-area canvas {
             width: 100% !important;
             height: auto !important;
             border-radius: 0 !important;
-            box-shadow: none !important;
             image-rendering: -webkit-optimize-contrast;
           }
         }

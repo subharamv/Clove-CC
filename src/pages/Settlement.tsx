@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Employee, CouponStatus, Settlement as SettlementType } from '../types';
 import { supabase } from '../supabaseClient';
+import { formatDateToDDMMYYYY } from '../utils/dateFormatUtils';
 // html2canvas and jsPDF are loaded dynamically inside generateVoucherPdf
 
 interface SettlementProps {
@@ -152,8 +153,8 @@ const Settlement: React.FC<SettlementProps> = ({ employees, onUpdateEmployees })
       coupon.name,
       coupon.emp_id,
       coupon.amount || 0,
-      coupon.issue_date,
-      coupon.valid_till,
+      formatDateToDDMMYYYY(coupon.issue_date),
+      formatDateToDDMMYYYY(coupon.valid_till),
       coupon.ot_hours || 0
     ]);
 
@@ -170,7 +171,7 @@ const Settlement: React.FC<SettlementProps> = ({ employees, onUpdateEmployees })
       `Reference Number,${settlement.referenceNumber}`,
       `Total Amount,₹${settlement.totalAmount.toLocaleString()}`,
       `Coupon Count,${settlement.couponCount}`,
-      `Settlement Date,${new Date(settlement.settledAt).toLocaleDateString()}`,
+      `Settlement Date,${formatDateToDDMMYYYY(settlement.settledAt)}`,
       `Notes,"${settlement.notes || ''}"`
     ].join('\n');
 
@@ -465,13 +466,7 @@ const Settlement: React.FC<SettlementProps> = ({ employees, onUpdateEmployees })
           </div>
           <div style="width: 45%; margin-left: 5%;">
             <span class="label">Date :</span>
-            <span class="field-value">${(() => {
-          const d = new Date(previewData.settledAt);
-          const day = String(d.getDate()).padStart(2, '0');
-          const month = String(d.getMonth() + 1).padStart(2, '0');
-          const year = d.getFullYear();
-          return `${day}/${month}/${year}`;
-        })()}</span>
+            <span class="field-value">${formatDateToDDMMYYYY(previewData.settledAt)}</span>
             <div class="dots"></div>
           </div>
         </div>
@@ -772,13 +767,7 @@ const Settlement: React.FC<SettlementProps> = ({ employees, onUpdateEmployees })
         </div>
         <div style="width: 45%; margin-left: 5%;">
           <span class="label">Date :</span>
-          <span class="field-value">${(() => {
-        const d = new Date(data.settledAt);
-        const day = String(d.getDate()).padStart(2, '0');
-        const month = String(d.getMonth() + 1).padStart(2, '0');
-        const year = d.getFullYear();
-        return `${day}/${month}/${year}`;
-      })()}</span>
+          <span class="field-value">${formatDateToDDMMYYYY(data.settledAt)}</span>
           <div class="dots"></div>
         </div>
       </div>
@@ -956,9 +945,9 @@ const Settlement: React.FC<SettlementProps> = ({ employees, onUpdateEmployees })
       </header>
 
       {view === 'NEW' ? (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 desktop:grid-cols-3 gap-8">
           {/* Settlement Form */}
-          <div className="lg:col-span-1 space-y-6">
+          <div className="desktop:col-span-1 space-y-6">
             <div className="bg-white p-8 rounded-[2rem] border border-slate-100 shadow-sm">
               <h2 className="text-xl font-bold text-slate-900 mb-6">Settlement Slip</h2>
 
@@ -1021,7 +1010,7 @@ const Settlement: React.FC<SettlementProps> = ({ employees, onUpdateEmployees })
           </div>
 
           {/* Eligible Coupons List */}
-          <div className="lg:col-span-2">
+          <div className="desktop:col-span-2">
             <div className="bg-white rounded-[2rem] border border-slate-100 shadow-sm overflow-hidden flex flex-col h-[70vh]">
               <div className="p-8 border-b border-slate-50 flex justify-between items-center">
                 <h3 className="font-bold text-slate-900">Eligible Coupons</h3>
@@ -1062,7 +1051,7 @@ const Settlement: React.FC<SettlementProps> = ({ employees, onUpdateEmployees })
                           </td>
                           <td className="px-8 py-4 font-mono text-xs text-indigo-600">{emp.serialCode}</td>
                           <td className="px-8 py-4 font-bold text-slate-900">₹{emp.amount}</td>
-                          <td className="px-8 py-4 text-slate-400">{emp.issueDate}</td>
+                          <td className="px-8 py-4 text-slate-400">{formatDateToDDMMYYYY(emp.issueDate)}</td>
                         </tr>
                       ))
                     )}
@@ -1108,7 +1097,7 @@ const Settlement: React.FC<SettlementProps> = ({ employees, onUpdateEmployees })
                 ) : (
                   filteredHistory.map(s => (
                     <tr key={s.id} className="hover:bg-slate-50 transition">
-                      <td className="px-8 py-5 text-slate-600">{new Date(s.settledAt).toLocaleDateString()}</td>
+                      <td className="px-8 py-5 text-slate-600">{formatDateToDDMMYYYY(s.settledAt)}</td>
                       <td className="px-8 py-5 font-bold text-slate-900">{s.referenceNumber}</td>
                       <td className="px-8 py-5 text-center font-bold text-indigo-600">{s.couponCount}</td>
                       <td className="px-8 py-5 font-black text-slate-900">₹{s.totalAmount.toLocaleString()}</td>
@@ -1228,7 +1217,7 @@ const Settlement: React.FC<SettlementProps> = ({ employees, onUpdateEmployees })
               </div>
               <div className="bg-slate-50 rounded-2xl p-4">
                 <p className="text-xs font-bold text-slate-600 uppercase tracking-widest mb-2">Settlement Date</p>
-                <p className="text-2xl font-black text-slate-900">{new Date(selectedSettlement.settledAt).toLocaleDateString()}</p>
+                <p className="text-2xl font-black text-slate-900">{formatDateToDDMMYYYY(selectedSettlement.settledAt)}</p>
               </div>
             </div>
 
@@ -1259,11 +1248,11 @@ const Settlement: React.FC<SettlementProps> = ({ employees, onUpdateEmployees })
                         </div>
                         <div>
                           <p className="text-slate-500 font-semibold">Issue Date</p>
-                          <p className="text-slate-700">{coupon.issue_date}</p>
+                          <p className="text-slate-700">{formatDateToDDMMYYYY(coupon.issue_date)}</p>
                         </div>
                         <div>
                           <p className="text-slate-500 font-semibold">Valid Till</p>
-                          <p className="text-slate-700">{coupon.valid_till}</p>
+                          <p className="text-slate-700">{formatDateToDDMMYYYY(coupon.valid_till)}</p>
                         </div>
                       </div>
                     </div>

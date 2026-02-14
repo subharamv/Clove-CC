@@ -8,8 +8,9 @@ const config: Config = {
   theme: {
     extend: {
       screens: {
-        'mobile': {'max': '500px'},
-        'desktop': {'min': '501px'},
+        'mobile': {'max': '767px'},
+        'tablet': {'min': '768px', 'max': '1023px'},
+        'desktop': {'min': '1024px'},
       },
       colors: {
         primary: {

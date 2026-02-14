@@ -361,7 +361,7 @@ const IssuedHistory: React.FC<IssuedHistoryProps> = ({ employees, settings, onSe
             `}</style>
 
             {/* Main Content */}
-            <div data-main-content className={`flex-1 p-8 transition-all duration-300 ${selectedForPrint.size > 0 ? 'lg:pr-96' : ''}`}>
+            <div data-main-content className={`flex-1 p-8 transition-all duration-300 ${selectedForPrint.size > 0 ? 'desktop:pr-96' : ''}`}>
                 <div className="max-w-7xl mx-auto">
                     <header className="mb-8">
                         <h1 className="text-3xl font-bold text-slate-900">Issued Coupons History</h1>
@@ -440,7 +440,7 @@ const IssuedHistory: React.FC<IssuedHistoryProps> = ({ employees, settings, onSe
                             <p className="text-slate-300 text-sm mt-1">Issue coupons from the dashboard to see them here.</p>
                         </div>
                     ) : viewMode === 'grid' ? (
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        <div className="grid grid-cols-1 md:grid-cols-2 desktop:grid-cols-3 gap-6">
                             {paginatedEmployees.map(emp => (
                                 <div
                                     key={emp.id}
@@ -790,7 +790,7 @@ const IssuedHistory: React.FC<IssuedHistoryProps> = ({ employees, settings, onSe
                     </div>
                     <button
                         onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-                        className="lg:hidden p-2 bg-white/20 rounded-lg hover:bg-white/30 transition"
+                        className="desktop:hidden p-2 bg-white/20 rounded-lg hover:bg-white/30 transition"
                     >
                         {sidebarCollapsed ? (
                             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M19 9l-7 7-7-7" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"></path></svg>
@@ -800,7 +800,7 @@ const IssuedHistory: React.FC<IssuedHistoryProps> = ({ employees, settings, onSe
                     </button>
                 </div>
 
-                <div className={`p-6 space-y-4 ${sidebarCollapsed ? 'hidden lg:block' : 'block'}`}>
+                <div className={`p-6 space-y-4 ${sidebarCollapsed ? 'hidden desktop:block' : 'block'}`}>
                     {getSelectedCoupons().length === 0 ? (
                         <div className="text-center py-12 text-slate-400">
                             <svg className="w-12 h-12 mx-auto mb-3 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"></path></svg>
@@ -910,7 +910,7 @@ const IssuedHistory: React.FC<IssuedHistoryProps> = ({ employees, settings, onSe
                             <div className="flex justify-between">
                                 <span className="text-slate-600">Settled Date:</span>
                                 <span className="font-bold text-slate-900">
-                                    {new Date(settlementModal.settlement.settledAt).toLocaleDateString()}
+                                    {formatDateToDDMMYYYY(settlementModal.settlement.settledAt)}
                                 </span>
                             </div>
                             {settlementModal.settlement.notes && (

@@ -1,4 +1,5 @@
 import { Settlement } from '../types';
+import { formatDateToDDMMYYYY } from './dateFormatUtils';
 
 export interface VoucherData {
     referenceNumber: string;
@@ -37,11 +38,7 @@ export const generateVoucherHTML = async (data: VoucherData): Promise<string> =>
     }
 
     const formatDate = (dateString: string) => {
-        const d = new Date(dateString);
-        const day = String(d.getDate()).padStart(2, '0');
-        const month = String(d.getMonth() + 1).padStart(2, '0');
-        const year = d.getFullYear();
-        return `${day}/${month}/${year}`;
+        return formatDateToDDMMYYYY(dateString);
     };
 
     return `<!DOCTYPE html>

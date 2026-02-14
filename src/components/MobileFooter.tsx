@@ -47,7 +47,7 @@ const MobileFooter: React.FC<MobileFooterProps> = ({ currentView, onNavigate }) 
     };
 
     return (
-        <nav className="flex desktop:hidden bg-white border-t border-slate-200 fixed bottom-0 left-0 right-0 h-16 items-center justify-around px-2 z-50">
+        <nav className="flex desktop:hidden bg-white border-t border-slate-200 fixed bottom-0 left-0 right-0 h-16 items-center justify-around px-2 z-50 no-print">
             {navItems.map((item) => {
                 const isActive = currentView === item.view;
                 if (item.isCenter) {

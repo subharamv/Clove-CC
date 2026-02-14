@@ -336,7 +336,7 @@ const ScanCoupon: React.FC<ScanCouponProps> = ({ onRefresh }) => {
             </div>
 
             {/* Sidebar - Coupon Details */}
-            <div className="w-full md:w-80 lg:w-96 bg-white border-l border-slate-200 p-6 shadow-xl flex flex-col">
+            <div className="w-full md:w-80 desktop:w-96 bg-white border-l border-slate-200 p-6 shadow-xl flex flex-col">
                 <h2 className="text-lg font-bold text-slate-900 mb-6 flex items-center gap-2 border-b pb-4">
                     <Info className="w-5 h-5 text-slate-400" />
                     Coupon Details

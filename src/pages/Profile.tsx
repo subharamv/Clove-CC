@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { supabase } from '../supabaseClient';
+import { formatDateToDDMMYYYY } from '../utils/dateFormatUtils';
 
 interface User {
     id: string;
@@ -105,7 +106,7 @@ const Profile: React.FC = () => {
                         <span className="px-4 py-1.5 bg-indigo-100 text-indigo-700 rounded-full text-[10px] md:text-xs font-bold uppercase tracking-wider border border-indigo-200 shadow-sm whitespace-nowrap">
                             System Administrator
                         </span>
-                        <p className="text-[10px] text-slate-400 mt-2 font-medium">Member since: {currentUser?.created_at ? new Date(currentUser.created_at).toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) : '...'}</p>
+                        <p className="text-[10px] text-slate-400 mt-2 font-medium">Member since: {currentUser?.created_at ? formatDateToDDMMYYYY(currentUser.created_at) : '...'}</p>
                     </div>
                 </div>
 
@@ -219,7 +220,7 @@ const Profile: React.FC = () => {
                                 users.map(user => (
                                     <tr key={user.id} className="hover:bg-slate-100 transition">
                                         <td className="px-6 py-4 font-medium text-slate-900">{user.email}</td>
-                                        <td className="px-6 py-4 text-sm text-slate-500">{new Date(user.created_at).toLocaleDateString()}</td>
+                                        <td className="px-6 py-4 text-sm text-slate-500">{formatDateToDDMMYYYY(user.created_at)}</td>
                                         <td className="px-6 py-4">
                                             <span className="px-3 py-1 bg-green-100 text-green-700 rounded-full text-xs font-bold">Active</span>
                                         </td>
