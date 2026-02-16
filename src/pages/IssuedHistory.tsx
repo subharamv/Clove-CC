@@ -6,10 +6,12 @@ import { formatRupees } from '../utils/currencyUtils';
 import { previewVoucher, downloadVoucherPDF, VoucherData } from '../utils/settlementVoucher';
 import CalendarFilter, { DateFilterType } from '../components/CalendarFilter';
 import { formatDateToDDMMYYYY } from '../utils/dateFormatUtils';
+import { formatDateToISO } from '../utils/dateUtils';
 
 interface SettlementModal {
     visible: boolean;
     settlement: SettlementType | null;
+    coupons: Employee[];
     loading: boolean;
 }
 
@@ -35,6 +37,7 @@ const IssuedHistory: React.FC<IssuedHistoryProps> = ({ employees, settings, onSe
     const [settlementModal, setSettlementModal] = useState<SettlementModal>({
         visible: false,
         settlement: null,
+        coupons: [],
         loading: false
     });
     const [previewingVoucherId, setPreviewingVoucherId] = useState<string | null>(null);
@@ -68,8 +71,9 @@ const IssuedHistory: React.FC<IssuedHistoryProps> = ({ employees, settings, onSe
     };
 
     const fetchSettlementDetails = async (settlementId: string) => {
-        setSettlementModal(prev => ({ ...prev, loading: true }));
+        setSettlementModal(prev => ({ ...prev, loading: true, visible: true, coupons: [] }));
         try {
+            // Fetch settlement
             const { data, error } = await supabase
                 .from('settlements')
                 .select('*')
@@ -77,6 +81,14 @@ const IssuedHistory: React.FC<IssuedHistoryProps> = ({ employees, settings, onSe
                 .single();
 
             if (error) throw error;
+
+            // Fetch coupons in this settlement
+            const { data: couponsData, error: couponsError } = await supabase
+                .from('coupons')
+                .select('*')
+                .eq('settlement_id', settlementId);
+
+            if (couponsError) throw couponsError;
 
             const settlement: SettlementType = {
                 id: data.id,
@@ -88,16 +100,30 @@ const IssuedHistory: React.FC<IssuedHistoryProps> = ({ employees, settings, onSe
                 notes: data.notes
             };
 
-            setSettlementModal(prev => ({
-                ...prev,
-                settlement,
-                visible: true,
-                loading: false
+            const transformedCoupons = (couponsData || []).map((row: any) => ({
+                id: row.id,
+                name: row.name || '',
+                empId: row.emp_id || '',
+                otHours: row.ot_hours || 0,
+                amount: row.amount || 0,
+                status: row.status || CouponStatus.PENDING,
+                serialCode: row.serial_code || '',
+                issueDate: row.issue_date || '',
+                validTill: row.valid_till || '',
+                created_at: row.created_at,
+                couponImageUrl: row.coupon_image_url
             }));
+
+            setSettlementModal({
+                visible: true,
+                settlement,
+                coupons: transformedCoupons,
+                loading: false
+            });
         } catch (err) {
             console.error('Error fetching settlement:', err);
             alert('Failed to load settlement details');
-            setSettlementModal(prev => ({ ...prev, loading: false }));
+            setSettlementModal(prev => ({ ...prev, loading: false, visible: false }));
         }
     };
 
@@ -199,7 +225,17 @@ const IssuedHistory: React.FC<IssuedHistoryProps> = ({ employees, settings, onSe
         // Date filtering
         let matchesDate = true;
         if (dateFilterType !== 'all' && startDate && endDate) {
-            const couponDate = emp.issueDate ? new Date(emp.issueDate.split('/').reverse().join('-')).toISOString().split('T')[0] : emp.created_at?.split('T')[0] || '';
+            let couponDate = '';
+            if (emp.issueDate) {
+                // Handle both DD/MM/YYYY and YYYY-MM-DD
+                if (emp.issueDate.includes('/')) {
+                    couponDate = emp.issueDate.split('/').reverse().join('-');
+                } else {
+                    couponDate = emp.issueDate;
+                }
+            } else {
+                couponDate = emp.created_at?.split('T')[0] || '';
+            }
             matchesDate = couponDate >= startDate && couponDate <= endDate;
         }
 
@@ -310,6 +346,39 @@ const IssuedHistory: React.FC<IssuedHistoryProps> = ({ employees, settings, onSe
         }
     };
 
+    const handleExportCSV = () => {
+        if (filteredEmployees.length === 0) {
+            alert('No coupons to export');
+            return;
+        }
+
+        const headers = ['Name', 'Emp ID', 'Coupon ID', 'Issued Date', 'Amount', 'Status', 'Valid Till'];
+        const rows = filteredEmployees.map(emp => [
+            emp.name,
+            emp.empId,
+            emp.serialCode,
+            formatDateToDDMMYYYY(emp.issueDate),
+            emp.amount,
+            emp.status,
+            emp.validTill ? formatDateToDDMMYYYY(emp.validTill) : 'N/A'
+        ]);
+
+        const csvContent = [
+            headers.join(','),
+            ...rows.map(row => row.map(cell => `"${cell}"`).join(','))
+        ].join('\n');
+
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        const dateStr = dateFilterType !== 'all' ? `${startDate}_to_${endDate}` : 'all';
+        link.download = `issued_coupons_history_${dateStr}.csv`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
+
     return (
         <div className="flex min-h-screen bg-slate-50 relative">
             <style>{`
@@ -407,8 +476,18 @@ const IssuedHistory: React.FC<IssuedHistoryProps> = ({ employees, settings, onSe
                             </div>
 
                             <div>
-                                <label className="block text-sm font-semibold text-slate-700 mb-2">View</label>
+                                <label className="block text-sm font-semibold text-slate-700 mb-2">Actions</label>
                                 <div className="flex gap-2 h-10">
+                                    <button
+                                        onClick={handleExportCSV}
+                                        title="Export Filtered Data to CSV"
+                                        className="px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-bold shadow-sm transition flex items-center gap-2"
+                                    >
+                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                                        </svg>
+                                        Export
+                                    </button>
                                     <button
                                         onClick={() => setViewMode('grid')}
                                         className={`px-3 py-2 rounded-xl text-sm font-semibold transition ${viewMode === 'grid'
@@ -885,60 +964,106 @@ const IssuedHistory: React.FC<IssuedHistoryProps> = ({ employees, settings, onSe
             </div>
 
             {/* Settlement Voucher Modal */}
-            {settlementModal.visible && settlementModal.settlement && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-3xl shadow-2xl max-w-md w-full p-8 relative">
-                        <button
-                            onClick={() => setSettlementModal({ ...settlementModal, visible: false })}
-                            className="absolute top-4 right-4 p-2 hover:bg-slate-100 rounded-lg transition"
-                        >
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M6 18L18 6M6 6l12 12" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"></path></svg>
-                        </button>
+            {settlementModal.visible && (
+                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-[2.5rem] shadow-2xl max-w-2xl w-full flex flex-col max-h-[90vh] overflow-hidden animate-in fade-in zoom-in duration-300">
+                        {/* Header */}
+                        <div className="p-8 border-b border-slate-100 flex justify-between items-center">
+                            <div>
+                                <h3 className="text-2xl font-black text-slate-900">Settlement Voucher</h3>
+                                {settlementModal.settlement && (
+                                    <p className="text-slate-500">Reference: <span className="font-mono text-indigo-600">{settlementModal.settlement.referenceNumber}</span></p>
+                                )}
+                            </div>
+                            <button
+                                onClick={() => setSettlementModal({ ...settlementModal, visible: false })}
+                                className="p-2 hover:bg-slate-100 rounded-full transition"
+                            >
+                                <svg className="w-6 h-6 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M6 18L18 6M6 6l12 12" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" /></svg>
+                            </button>
+                        </div>
 
-                        <h3 className="text-2xl font-bold text-slate-900 mb-2">Settlement Voucher</h3>
-                        <p className="text-slate-500 mb-6">Reference: {settlementModal.settlement.referenceNumber}</p>
+                        {settlementModal.loading ? (
+                            <div className="p-20 flex flex-col items-center justify-center">
+                                <div className="w-12 h-12 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin mb-4"></div>
+                                <p className="text-slate-500 font-medium">Loading settlement details...</p>
+                            </div>
+                        ) : settlementModal.settlement ? (
+                            <>
+                                <div className="flex-1 overflow-y-auto p-8">
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+                                        <div className="bg-indigo-50 p-4 rounded-2xl border border-indigo-100">
+                                            <p className="text-[10px] font-black text-indigo-600 uppercase tracking-widest mb-1">Total Amount</p>
+                                            <p className="text-xl font-bold text-indigo-900">{formatRupees(settlementModal.settlement.totalAmount)}</p>
+                                        </div>
+                                        <div className="bg-orange-50 p-4 rounded-2xl border border-orange-100">
+                                            <p className="text-[10px] font-black text-orange-600 uppercase tracking-widest mb-1">Coupon Count</p>
+                                            <p className="text-xl font-bold text-orange-900">{settlementModal.settlement.couponCount}</p>
+                                        </div>
+                                        <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                                            <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest mb-1">Settled Date</p>
+                                            <p className="text-lg font-bold text-slate-900">{formatDateToDDMMYYYY(settlementModal.settlement.settledAt)}</p>
+                                        </div>
+                                    </div>
 
-                        <div className="space-y-4 mb-8 bg-slate-50 p-4 rounded-xl">
-                            <div className="flex justify-between">
-                                <span className="text-slate-600">Total Amount:</span>
-                                <span className="font-bold text-slate-900">{formatRupees(settlementModal.settlement.totalAmount)}</span>
-                            </div>
-                            <div className="flex justify-between">
-                                <span className="text-slate-600">Coupon Count:</span>
-                                <span className="font-bold text-slate-900">{settlementModal.settlement.couponCount}</span>
-                            </div>
-                            <div className="flex justify-between">
-                                <span className="text-slate-600">Settled Date:</span>
-                                <span className="font-bold text-slate-900">
-                                    {formatDateToDDMMYYYY(settlementModal.settlement.settledAt)}
-                                </span>
-                            </div>
-                            {settlementModal.settlement.notes && (
-                                <div>
-                                    <span className="text-slate-600">Notes:</span>
-                                    <p className="text-slate-900 mt-1">{settlementModal.settlement.notes}</p>
+                                    {settlementModal.settlement.notes && (
+                                        <div className="mb-8 p-4 bg-amber-50 rounded-2xl border border-amber-100">
+                                            <p className="text-[10px] font-black text-amber-600 uppercase tracking-widest mb-1">Notes</p>
+                                            <p className="text-sm text-slate-700">{settlementModal.settlement.notes}</p>
+                                        </div>
+                                    )}
+
+                                    {/* Coupons List */}
+                                    <div className="space-y-4">
+                                        <h4 className="text-sm font-black text-slate-900 uppercase tracking-widest">Coupons Covered</h4>
+                                        <div className="space-y-2">
+                                            {settlementModal.coupons.map((coupon, idx) => (
+                                                <div key={coupon.id} className="p-4 bg-slate-50 rounded-xl border border-slate-100 flex justify-between items-center group hover:bg-white hover:border-indigo-200 transition">
+                                                    <div>
+                                                        <p className="text-sm font-bold text-slate-900">{idx + 1}. {coupon.name}</p>
+                                                        <p className="text-[10px] text-slate-500 font-mono">{coupon.serialCode}</p>
+                                                    </div>
+                                                    <p className="font-black text-indigo-600 text-sm">{formatRupees(coupon.amount)}</p>
+                                                </div>
+                                            ))}
+                                            {settlementModal.coupons.length === 0 && (
+                                                <p className="text-center py-8 text-slate-400 italic">No coupon data available for this settlement.</p>
+                                            )}
+                                        </div>
+                                    </div>
                                 </div>
-                            )}
-                        </div>
 
-                        <div className="flex gap-3">
-                            <button
-                                onClick={() => handlePreviewVoucher(settlementModal.settlement!)}
-                                disabled={previewingVoucherId === settlementModal.settlement.id}
-                                className="flex-1 py-2 px-4 bg-purple-100 hover:bg-purple-200 disabled:bg-slate-100 text-purple-700 disabled:text-slate-400 rounded-lg font-semibold transition flex items-center justify-center gap-2"
-                            >
-                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"></path><path d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"></path></svg>
-                                Preview
-                            </button>
-                            <button
-                                onClick={() => handleDownloadVoucher(settlementModal.settlement!)}
-                                disabled={previewingVoucherId === settlementModal.settlement.id}
-                                className="flex-1 py-2 px-4 bg-purple-600 hover:bg-purple-700 disabled:bg-slate-400 text-white rounded-lg font-semibold transition flex items-center justify-center gap-2"
-                            >
-                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"></path></svg>
-                                Download
-                            </button>
-                        </div>
+                                {/* Footer Actions */}
+                                <div className="p-8 border-t border-slate-100 bg-slate-50/50 flex gap-3">
+                                    <button
+                                        onClick={() => handlePreviewVoucher(settlementModal.settlement!)}
+                                        disabled={previewingVoucherId === settlementModal.settlement.id}
+                                        className="flex-1 py-4 px-6 bg-white border border-slate-200 hover:bg-slate-50 disabled:bg-slate-100 text-slate-700 disabled:text-slate-400 rounded-2xl font-bold transition flex items-center justify-center gap-2"
+                                    >
+                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"></path><path d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"></path></svg>
+                                        Preview
+                                    </button>
+                                    <button
+                                        onClick={() => handleDownloadVoucher(settlementModal.settlement!)}
+                                        disabled={previewingVoucherId === settlementModal.settlement.id}
+                                        className="flex-1 py-4 px-6 bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-400 text-white rounded-2xl font-bold shadow-xl shadow-indigo-100 transition flex items-center justify-center gap-2"
+                                    >
+                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"></path></svg>
+                                        Download PDF
+                                    </button>
+                                </div>
+                            </>
+                        ) : (
+                            <div className="p-20 text-center">
+                                <p className="text-red-500 font-bold">Failed to load settlement information.</p>
+                                <button
+                                    onClick={() => setSettlementModal({ ...settlementModal, visible: false })}
+                                    className="mt-4 px-6 py-2 bg-slate-100 rounded-xl font-bold text-slate-600"
+                                >
+                                    Close
+                                </button>
+                            </div>
+                        )}
                     </div>
                 </div>
             )}

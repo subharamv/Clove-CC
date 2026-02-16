@@ -10,6 +10,7 @@ export enum View {
   SETTINGS = 'SETTINGS',
   SETTLEMENT = 'SETTLEMENT',
   SCAN_COUPON = 'SCAN_COUPON',
+  VENDOR_HISTORY = 'VENDOR_HISTORY',
   RESET_PASSWORD = 'RESET_PASSWORD'
 }
 
@@ -26,6 +27,7 @@ export interface Settlement {
   totalAmount: number;
   couponCount: number;
   settledBy: string;
+  vendorId?: string;
   settledAt: string;
   referenceNumber: string;
   notes?: string;
@@ -45,6 +47,7 @@ export interface Employee {
   couponImageUrl?: string;
   print_status?: 'PENDING_PRINT' | 'PRINTED';
   settlement_id?: string;
+  received_by?: string;
 }
 
 export interface TemplateElement {

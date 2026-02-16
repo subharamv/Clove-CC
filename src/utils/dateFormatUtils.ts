@@ -25,7 +25,8 @@ export const formatDateToDDMMYYYY = (dateInput: string | Date): string => {
             const dateString = String(dateInput).trim();
             // Try to parse as ISO format (YYYY-MM-DD)
             if (dateString.match(/^\d{4}-\d{2}-\d{2}$/)) {
-                date = new Date(dateString);
+                const parts = dateString.split('-');
+                date = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
             }
             // Try to parse as DD/MM/YYYY or DD-MM-YYYY
             else if (dateString.match(/^(\d{2})[-\/](\d{2})[-\/](\d{4})$/)) {
@@ -43,8 +44,15 @@ export const formatDateToDDMMYYYY = (dateInput: string | Date): string => {
                 const year = parseInt(parts[2], 10);
                 date = new Date(year, month - 1, day);
             } else {
-                // Try generic parsing
-                date = new Date(dateString);
+                // Try generic parsing but force local time interpretation
+                const d = new Date(dateString);
+                if (dateString.includes('T')) {
+                    // It's a timestamp, use standard behavior
+                    date = d;
+                } else {
+                    // It's likely a date-only string, treat as local
+                    date = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+                }
             }
         }
 

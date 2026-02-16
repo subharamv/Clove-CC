@@ -17,6 +17,9 @@ const Settlement: React.FC<SettlementProps> = ({ employees, onUpdateEmployees })
   const [referenceNumber, setReferenceNumber] = useState('');
   const [search, setSearch] = useState('');
   const [historySearch, setHistorySearch] = useState('');
+  const [vendors, setVendors] = useState<any[]>([]);
+  const [selectedVendor, setSelectedVendor] = useState<string>('all');
+  const [selectedHistoryVendor, setSelectedHistoryVendor] = useState<string>('all');
   const [showPreview, setShowPreview] = useState(false);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
@@ -27,7 +30,18 @@ const Settlement: React.FC<SettlementProps> = ({ employees, onUpdateEmployees })
   const [loadingDetails, setLoadingDetails] = useState(false);
 
   // RECEIVED coupons are eligible for settlement
-  const receivableCoupons = employees.filter(emp => emp.status === CouponStatus.RECEIVED);
+  const receivableCoupons = employees.filter(emp => {
+    const isReceived = emp.status === CouponStatus.RECEIVED;
+    if (!isReceived) return false;
+
+    if (selectedVendor === 'all') {
+      // Show ALL received coupons (including those scanned by admins)
+      return true;
+    }
+    
+    // Show only coupons received by the selected vendor
+    return emp.received_by === selectedVendor;
+  });
 
   const filteredReceivable = receivableCoupons.filter(emp =>
     emp.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -36,6 +50,22 @@ const Settlement: React.FC<SettlementProps> = ({ employees, onUpdateEmployees })
   );
 
   const totalAmount = receivableCoupons.reduce((sum, emp) => sum + emp.amount, 0);
+
+  useEffect(() => {
+    loadVendors();
+  }, []);
+
+  const loadVendors = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('user_id, email, is_admin, access');
+      if (error) throw error;
+      setVendors(data || []);
+    } catch (err) {
+      console.error('Error loading vendors:', err);
+    }
+  };
 
   useEffect(() => {
     if (view === 'HISTORY') {
@@ -58,6 +88,7 @@ const Settlement: React.FC<SettlementProps> = ({ employees, onUpdateEmployees })
         totalAmount: s.total_amount,
         couponCount: s.coupon_count,
         settledBy: s.settled_by,
+        vendorId: s.vendor_id,
         settledAt: s.settled_at,
         referenceNumber: s.reference_number,
         notes: s.notes
@@ -147,7 +178,7 @@ const Settlement: React.FC<SettlementProps> = ({ employees, onUpdateEmployees })
     }
 
     // Prepare CSV header
-    const headers = ['Serial Code', 'Employee Name', 'Employee ID', 'Amount', 'Issue Date', 'Valid Till', 'OT Hours'];
+    const headers = ['Serial Code', 'Employee Name', 'Employee ID', 'Amount', 'Issue Date', 'Valid Till', 'OT Hours', 'Received By'];
     const rows = settlementCoupons.map(coupon => [
       coupon.serial_code,
       coupon.name,
@@ -155,7 +186,8 @@ const Settlement: React.FC<SettlementProps> = ({ employees, onUpdateEmployees })
       coupon.amount || 0,
       formatDateToDDMMYYYY(coupon.issue_date),
       formatDateToDDMMYYYY(coupon.valid_till),
-      coupon.ot_hours || 0
+      coupon.ot_hours || 0,
+      vendors.find(v => v.user_id === coupon.received_by)?.email || 'Unknown'
     ]);
 
     // Create CSV content
@@ -212,6 +244,7 @@ const Settlement: React.FC<SettlementProps> = ({ employees, onUpdateEmployees })
           total_amount: totalAmount,
           coupon_count: receivableCoupons.length,
           settled_by: session.user.id,
+          vendor_id: selectedVendor !== 'all' ? selectedVendor : null,
           reference_number: referenceNumber,
           notes: notes
         }])
@@ -896,10 +929,14 @@ const Settlement: React.FC<SettlementProps> = ({ employees, onUpdateEmployees })
     document.body.removeChild(container);
   };
 
-  const filteredHistory = settlements.filter(s =>
-    s.referenceNumber.toLowerCase().includes(historySearch.toLowerCase()) ||
-    (s.notes && s.notes.toLowerCase().includes(historySearch.toLowerCase()))
-  );
+  const filteredHistory = settlements.filter(s => {
+    const matchesSearch = s.referenceNumber.toLowerCase().includes(historySearch.toLowerCase()) ||
+      (s.notes && s.notes.toLowerCase().includes(historySearch.toLowerCase()));
+    
+    const matchesVendor = selectedHistoryVendor === 'all' || s.vendorId === selectedHistoryVendor;
+    
+    return matchesSearch && matchesVendor;
+  });
 
   const [pdfGeneratingId, setPdfGeneratingId] = useState<string | null>(null);
 
@@ -959,6 +996,19 @@ const Settlement: React.FC<SettlementProps> = ({ employees, onUpdateEmployees })
                 </div>
 
                 <div className="space-y-4">
+                  <div>
+                    <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Select Vendor</label>
+                    <select
+                      value={selectedVendor}
+                      onChange={(e) => setSelectedVendor(e.target.value)}
+                      className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl focus:ring-2 focus:ring-indigo-500 transition font-medium"
+                    >
+                      <option value="all">All Vendors</option>
+                      {vendors.filter(v => !v.is_admin && v.access).map(v => (
+                        <option key={v.user_id} value={v.user_id}>{v.email}</option>
+                      ))}
+                    </select>
+                  </div>
                   <div>
                     <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Reference Number</label>
                     <input
@@ -1063,16 +1113,29 @@ const Settlement: React.FC<SettlementProps> = ({ employees, onUpdateEmployees })
         </div>
       ) : (
         <div className="space-y-6">
-          <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between">
-            <div className="relative w-96">
-              <input
-                type="text"
-                value={historySearch}
-                onChange={(e) => setHistorySearch(e.target.value)}
-                placeholder="Filter by reference or notes..."
-                className="w-full pl-10 pr-4 py-3 bg-slate-50 border-none rounded-xl text-sm focus:ring-2 focus:ring-indigo-500"
-              />
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"></span>
+          <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between gap-4">
+            <div className="flex items-center gap-4 flex-1">
+              <div className="relative w-72">
+                <input
+                  type="text"
+                  value={historySearch}
+                  onChange={(e) => setHistorySearch(e.target.value)}
+                  placeholder="Filter by reference or notes..."
+                  className="w-full pl-10 pr-4 py-3 bg-slate-50 border-none rounded-xl text-sm focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+              <div className="w-64">
+                <select
+                  value={selectedHistoryVendor}
+                  onChange={(e) => setSelectedHistoryVendor(e.target.value)}
+                  className="w-full px-4 py-3 bg-slate-50 border-none rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 font-medium"
+                >
+                  <option value="all">All Vendors</option>
+                  {vendors.filter(v => !v.is_admin && v.access).map(v => (
+                    <option key={v.user_id} value={v.user_id}>{v.email}</option>
+                  ))}
+                </select>
+              </div>
             </div>
             <p className="text-sm font-medium text-slate-500">Showing {filteredHistory.length} settlement records</p>
           </div>
@@ -1083,6 +1146,7 @@ const Settlement: React.FC<SettlementProps> = ({ employees, onUpdateEmployees })
                 <tr className="bg-slate-50 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100">
                   <th className="px-8 py-5">Date</th>
                   <th className="px-8 py-5">Reference</th>
+                  <th className="px-8 py-5">Vendor</th>
                   <th className="px-8 py-5 text-center">Coupons</th>
                   <th className="px-8 py-5">Amount</th>
                   <th className="px-8 py-5">Notes</th>
@@ -1099,6 +1163,11 @@ const Settlement: React.FC<SettlementProps> = ({ employees, onUpdateEmployees })
                     <tr key={s.id} className="hover:bg-slate-50 transition">
                       <td className="px-8 py-5 text-slate-600">{formatDateToDDMMYYYY(s.settledAt)}</td>
                       <td className="px-8 py-5 font-bold text-slate-900">{s.referenceNumber}</td>
+                      <td className="px-8 py-5">
+                        <span className={`px-2 py-1 rounded-md text-[10px] font-bold ${s.vendorId ? 'bg-indigo-50 text-indigo-700' : 'bg-slate-100 text-slate-600'}`}>
+                          {s.vendorId ? (vendors.find(v => v.user_id === s.vendorId)?.email || 'Vendor') : 'Multiple/All'}
+                        </span>
+                      </td>
                       <td className="px-8 py-5 text-center font-bold text-indigo-600">{s.couponCount}</td>
                       <td className="px-8 py-5 font-black text-slate-900">₹{s.totalAmount.toLocaleString()}</td>
                       <td className="px-8 py-5 text-slate-400 max-w-xs truncate">{s.notes || '-'}</td>
@@ -1253,6 +1322,10 @@ const Settlement: React.FC<SettlementProps> = ({ employees, onUpdateEmployees })
                         <div>
                           <p className="text-slate-500 font-semibold">Valid Till</p>
                           <p className="text-slate-700">{formatDateToDDMMYYYY(coupon.valid_till)}</p>
+                        </div>
+                        <div>
+                          <p className="text-slate-500 font-semibold">Received By</p>
+                          <p className="text-slate-700 text-[10px] truncate">{vendors.find(v => v.user_id === coupon.received_by)?.email || 'Unknown'}</p>
                         </div>
                       </div>
                     </div>

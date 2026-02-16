@@ -4,7 +4,7 @@ import { Employee, CouponStatus, SystemSettings } from '../types';
 import { supabase } from '../supabaseClient';
 import SettingsService from '../utils/settingsService';
 import { getRupeeSymbol, formatRupees } from '../utils/currencyUtils';
-import { parseDateFromCSV, getValidityDate } from '../utils/dateUtils';
+import { parseDateFromCSV, getValidityDate, formatDateToISO } from '../utils/dateUtils';
 import { formatDateToDDMMYYYY } from '../utils/dateFormatUtils';
 
 interface DashboardProps {
@@ -36,7 +36,7 @@ const Dashboard: React.FC<DashboardProps> = ({
     name: '',
     empId: '',
     otHours: 0,
-    issueDate: new Date().toISOString().split('T')[0],
+    issueDate: formatDateToISO(new Date()),
     couponAmountId: ''
   });
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -206,7 +206,7 @@ const Dashboard: React.FC<DashboardProps> = ({
         serialCounter = usedNumber + 1;
 
         // Parse issue date from CSV or use today's date
-        let issueDate = new Date().toISOString().split('T')[0];
+        let issueDate = formatDateToISO(new Date());
         if (issueDateIdx !== -1 && cols[issueDateIdx]) {
           const parsedDate = parseDateFromCSV(cols[issueDateIdx]);
           if (parsedDate) {
@@ -321,6 +321,34 @@ const Dashboard: React.FC<DashboardProps> = ({
     if (file) uploadCSV(file);
   };
 
+  const downloadUploadedCouponsCSV = () => {
+    if (lastUploadedCoupons.length === 0) return;
+
+    const headers = ['Name', 'Emp ID', 'Coupon ID', 'Issued Date', 'Amount', 'Valid Till'];
+    const rows = lastUploadedCoupons.map(c => [
+      c.name,
+      c.emp_id,
+      c.serial_code,
+      formatDateToDDMMYYYY(c.issue_date),
+      c.amount,
+      formatDateToDDMMYYYY(c.valid_till)
+    ]);
+
+    const csvContent = [
+      headers.join(','),
+      ...rows.map(row => row.map(cell => `"${cell}"`).join(','))
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `issued_coupons_${formatDateToISO(new Date())}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   const handleDrag = (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -355,7 +383,7 @@ const Dashboard: React.FC<DashboardProps> = ({
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `coupon_template_${new Date().toISOString().split('T')[0]}.csv`;
+    a.download = `coupon_template_${formatDateToISO(new Date())}.csv`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -382,7 +410,7 @@ const Dashboard: React.FC<DashboardProps> = ({
       ) || getDefaultCouponAmount();
 
       // Use the selected issue date or default to today
-      const issueDate = singleCoupon.issueDate || new Date().toISOString().split('T')[0];
+      const issueDate = singleCoupon.issueDate || formatDateToISO(new Date());
       const validTill = getValidityDate(issueDate, selectedConfig.validityPeriod);
 
       // Generate a unique ID for the coupon
@@ -451,7 +479,7 @@ const Dashboard: React.FC<DashboardProps> = ({
 
       setLastUploadedCoupons([newCoupon]);
       setShowSuccessModal(true);
-      setSingleCoupon({ name: '', empId: '', otHours: 0, issueDate: new Date().toISOString().split('T')[0], couponAmountId: '' });
+      setSingleCoupon({ name: '', empId: '', otHours: 0, issueDate: formatDateToISO(new Date()), couponAmountId: '' });
       setShowSingleCoupon(false);
     } catch (err: any) {
       console.error('Error creating coupon:', err);
@@ -977,6 +1005,15 @@ const Dashboard: React.FC<DashboardProps> = ({
                 </p>
 
                 <div className="grid grid-cols-1 gap-4 w-full">
+                  <button
+                    onClick={downloadUploadedCouponsCSV}
+                    className="w-full py-5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl font-bold shadow-xl shadow-emerald-100 transition-all hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-3"
+                  >
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                    </svg>
+                    Export Issued Data (CSV)
+                  </button>
                   <button
                     onClick={() => {
                       setShowSuccessModal(false);

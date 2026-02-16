@@ -8,17 +8,21 @@ import CanvasEditor from '../components/CanvasEditor';
 
 interface User {
   id: string;
+  user_id: string;
   email: string;
+  is_admin: boolean;
+  access: boolean;
   created_at: string;
 }
 
 interface SettingsProps {
   settings: SystemSettings;
   onSaveSettings: (settings: SystemSettings) => void;
+  onRefresh?: () => void;
 }
 
-const Settings: React.FC<SettingsProps> = ({ settings, onSaveSettings }) => {
-  const [activeTab, setActiveTab] = useState<'serial' | 'coupons' | 'template'>('serial');
+const Settings: React.FC<SettingsProps> = ({ settings, onSaveSettings, onRefresh }) => {
+  const [activeTab, setActiveTab] = useState<'serial' | 'coupons' | 'template' | 'users'>('serial');
   const [formData, setFormData] = useState<SystemSettings>({
     ...settings,
     backgroundTemplate: settings.backgroundTemplate || '',
@@ -61,15 +65,19 @@ const Settings: React.FC<SettingsProps> = ({ settings, onSaveSettings }) => {
       // Fetch from profiles instead of auth.admin.listUsers() to avoid 403
       const { data: profiles, error } = await supabase
         .from('profiles')
-        .select('*');
+        .select('*')
+        .order('created_at', { ascending: false });
 
       if (error) {
         console.warn('Could not fetch profiles (check RLS policies):', error);
         setUsers([]);
       } else {
         setUsers(profiles?.map(p => ({
-          id: p.user_id || p.id,
+          id: p.id,
+          user_id: p.user_id,
           email: p.email || 'No email',
+          is_admin: p.is_admin || false,
+          access: p.access || false,
           created_at: p.created_at || new Date().toISOString()
         })) || []);
       }
@@ -78,6 +86,42 @@ const Settings: React.FC<SettingsProps> = ({ settings, onSaveSettings }) => {
       setUsers([]);
     } finally {
       setLoadingUsers(false);
+    }
+  };
+
+  const handleToggleRole = async (userId: string, field: 'is_admin' | 'access', value: boolean) => {
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ [field]: value })
+        .eq('user_id', userId);
+
+      if (error) throw error;
+      
+      // Update local state for immediate feedback
+      setUsers(prev => prev.map(u => u.user_id === userId ? { ...u, [field]: value } : u));
+
+      if (onRefresh) {
+        onRefresh();
+      }
+    } catch (err: any) {
+      alert('Failed to update role: ' + err.message);
+    }
+  };
+
+  const handleDeleteUser = async (userId: string) => {
+    if (!confirm('Are you sure you want to remove this user profile? This won\'t delete their auth account but will remove their access.')) return;
+    
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .delete()
+        .eq('user_id', userId);
+
+      if (error) throw error;
+      setUsers(prev => prev.filter(u => u.user_id !== userId));
+    } catch (err: any) {
+      alert('Failed to delete user profile: ' + err.message);
     }
   };
 
@@ -362,6 +406,13 @@ const Settings: React.FC<SettingsProps> = ({ settings, onSaveSettings }) => {
           Template
           {activeTab === 'template' && <div className="absolute bottom-0 left-0 right-0 h-1 bg-indigo-600 rounded-t-full" />}
         </button>
+        <button
+          onClick={() => setActiveTab('users')}
+          className={`pb-4 text-sm font-bold transition-all relative ${activeTab === 'users' ? 'text-indigo-600' : 'text-slate-400 hover:text-slate-600'}`}
+        >
+          User Management
+          {activeTab === 'users' && <div className="absolute bottom-0 left-0 right-0 h-1 bg-indigo-600 rounded-t-full" />}
+        </button>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-8">
@@ -621,6 +672,128 @@ const Settings: React.FC<SettingsProps> = ({ settings, onSaveSettings }) => {
                 />
               </section>
             )}
+          </div>
+        )}
+
+        {/* User Management Tab */}
+        {activeTab === 'users' && (
+          <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-300">
+            <section className="bg-white shadow-sm border border-slate-100 rounded-3xl p-8">
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-lg font-bold text-slate-900">User Management & Access Control</h2>
+                <button 
+                  type="button"
+                  onClick={() => setShowUserForm(!showUserForm)}
+                  className="px-4 py-2 bg-indigo-50 text-indigo-600 rounded-xl text-xs font-bold hover:bg-indigo-100 transition"
+                >
+                  {showUserForm ? 'Cancel' : '+ Invite New User'}
+                </button>
+              </div>
+
+              {showUserForm && (
+                <div className="mb-8 p-6 bg-slate-50 rounded-2xl border border-slate-200 animate-in fade-in zoom-in duration-200">
+                  <h3 className="text-sm font-bold text-slate-900 mb-4">Create New Account</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Email Address</label>
+                      <input
+                        type="email"
+                        required
+                        className="block w-full rounded-xl border-slate-200 bg-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm py-3 px-4 transition"
+                        value={inviteEmail}
+                        onChange={(e) => setInviteEmail(e.target.value)}
+                        placeholder="email@example.com"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Password</label>
+                      <input
+                        type="password"
+                        required
+                        minLength={6}
+                        className="block w-full rounded-xl border-slate-200 bg-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm py-3 px-4 transition"
+                        value={invitePassword}
+                        onChange={(e) => setInvitePassword(e.target.value)}
+                        placeholder="••••••••"
+                      />
+                    </div>
+                    <div className="flex items-end">
+                      <button
+                        type="button"
+                        onClick={handleInviteUser}
+                        disabled={inviteLoading}
+                        className="w-full px-4 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-bold shadow-lg transition disabled:opacity-50"
+                      >
+                        {inviteLoading ? 'Creating...' : 'Create Account'}
+                      </button>
+                    </div>
+                  </div>
+                  {inviteMessage && (
+                    <p className={`mt-3 text-xs font-bold ${inviteMessage.includes('✓') ? 'text-emerald-600' : 'text-red-600'}`}>
+                      {inviteMessage}
+                    </p>
+                  )}
+                  <p className="mt-4 text-[10px] text-slate-400 italic">
+                    Note: Users will need to verify their email if email confirmation is enabled in Supabase.
+                  </p>
+                </div>
+              )}
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-left">
+                  <thead>
+                    <tr className="border-b border-slate-50">
+                      <th className="pb-4 text-xs font-bold text-slate-400 uppercase tracking-widest">User</th>
+                      <th className="pb-4 text-xs font-bold text-slate-400 uppercase tracking-widest text-center">Admin</th>
+                      <th className="pb-4 text-xs font-bold text-slate-400 uppercase tracking-widest text-center">Vendor (Scan)</th>
+                      <th className="pb-4 text-xs font-bold text-slate-400 uppercase tracking-widest text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-50">
+                    {loadingUsers ? (
+                      <tr><td colSpan={4} className="py-8 text-center text-slate-400 animate-pulse">Loading users...</td></tr>
+                    ) : users.length === 0 ? (
+                      <tr><td colSpan={4} className="py-8 text-center text-slate-400">No users found.</td></tr>
+                    ) : (
+                      users.map(user => (
+                        <tr key={user.id} className="group hover:bg-slate-50/50 transition">
+                          <td className="py-4">
+                            <p className="text-sm font-bold text-slate-900">{user.email}</p>
+                            <p className="text-[10px] text-slate-400 font-mono">{user.user_id}</p>
+                          </td>
+                          <td className="py-4 text-center">
+                            <input
+                              type="checkbox"
+                              checked={user.is_admin}
+                              onChange={(e) => handleToggleRole(user.user_id, 'is_admin', e.target.checked)}
+                              className="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500"
+                            />
+                          </td>
+                          <td className="py-4 text-center">
+                            <input
+                              type="checkbox"
+                              checked={user.access}
+                              onChange={(e) => handleToggleRole(user.user_id, 'access', e.target.checked)}
+                              className="w-4 h-4 text-orange-600 rounded border-slate-300 focus:ring-orange-500"
+                            />
+                          </td>
+                          <td className="py-4 text-right">
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteUser(user.user_id)}
+                              className="p-2 text-slate-300 hover:text-red-600 transition"
+                              title="Delete profile"
+                            >
+                              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                            </button>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </section>
           </div>
         )}
 

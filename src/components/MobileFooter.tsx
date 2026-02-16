@@ -4,19 +4,36 @@ import { View } from '../types';
 interface MobileFooterProps {
     currentView: View;
     onNavigate: (view: View) => void;
+    userProfile?: any;
 }
 
-const MobileFooter: React.FC<MobileFooterProps> = ({ currentView, onNavigate }) => {
-    const navItems = [
-        { view: View.DASHBOARD, label: 'Issue', icon: 'card_giftcard' },
-        { view: View.PENDING, label: 'Pending', icon: 'hourglass_empty' },
-        { view: View.SCAN_COUPON, label: 'Scan', icon: 'qr_code_scanner', isCenter: true },
-        { view: View.ISSUED_HISTORY, label: 'History', icon: 'history' },
-        { view: View.SETTLEMENT, label: 'Settlement', icon: 'payments' },
-    ];
+const MobileFooter: React.FC<MobileFooterProps> = ({ currentView, onNavigate, userProfile }) => {
+    const isAdmin = userProfile?.is_admin;
+    const hasAccess = userProfile?.access;
+
+    const navItems = [];
+    
+    if (isAdmin) {
+        navItems.push({ view: View.DASHBOARD, label: 'Issue', icon: 'card_giftcard' });
+        navItems.push({ view: View.PENDING, label: 'Pending', icon: 'hourglass_empty' });
+        navItems.push({ view: View.SCAN_COUPON, label: 'Scan', icon: 'qr_code_scanner', isCenter: true });
+        navItems.push({ view: View.ISSUED_HISTORY, label: 'History', icon: 'history' });
+        navItems.push({ view: View.SETTLEMENT, label: 'Settlement', icon: 'payments' });
+    } else if (hasAccess) {
+        navItems.push({ view: View.VENDOR_HISTORY, label: 'My Scans', icon: 'history' });
+        navItems.push({ view: View.SCAN_COUPON, label: 'Scan', icon: 'qr_code_scanner', isCenter: true });
+        navItems.push({ view: View.PROFILE, label: 'Profile', icon: 'profile' });
+    } else {
+        navItems.push({ view: View.PROFILE, label: 'Profile', icon: 'profile', isCenter: true });
+    }
 
     const getIcon = (iconName: string, active: boolean) => {
         const iconMap: Record<string, React.ReactElement> = {
+            profile: (
+                <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
+                </svg>
+            ),
             payments: (
                 <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
                     <path d="M19 14V6c0-1.1-.9-2-2-2H3c-1.1 0-2 .9-2 2v8c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zm-2 0H3V6h14v8zm-7-7c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3zm13 0v11c0 1.1-.9 2-2 2H4v-2h17V7h2z" />

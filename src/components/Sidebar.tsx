@@ -6,19 +6,30 @@ interface SidebarProps {
     onNavigate: (view: View) => void;
     onLogout: () => void;
     className?: string;
+    userProfile?: any;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ currentView, onNavigate, onLogout, className = '' }) => {
+const Sidebar: React.FC<SidebarProps> = ({ currentView, onNavigate, onLogout, className = '', userProfile }) => {
     const [isCollapsed, setIsCollapsed] = useState(false);
 
-    const navItems = [
-        { view: View.DASHBOARD, label: 'Issue Coupons', icon: 'card_giftcard' },
-        { view: View.SCAN_COUPON, label: 'Scan Coupon', icon: 'qr_code_scanner' },
-        { view: View.ISSUED_HISTORY, label: 'Issued History', icon: 'history' },
-        { view: View.PENDING, label: 'Pending Review', icon: 'hourglass_empty' },
-        { view: View.SETTLEMENT, label: 'Settlement', icon: 'payments' },
-        { view: View.SETTINGS, label: 'Settings', icon: 'settings' },
-    ];
+    const isAdmin = userProfile?.is_admin;
+    const hasAccess = userProfile?.access;
+
+    const navItems = [];
+    
+    if (isAdmin) {
+        navItems.push({ view: View.DASHBOARD, label: 'Dashboard', icon: 'card_giftcard' });
+        navItems.push({ view: View.SCAN_COUPON, label: 'Scan Coupon', icon: 'qr_code_scanner' });
+        navItems.push({ view: View.ISSUED_HISTORY, label: 'Issued History', icon: 'history' });
+        navItems.push({ view: View.VENDOR_HISTORY, label: 'Received History', icon: 'restaurant' });
+        navItems.push({ view: View.PENDING, label: 'Pending Review', icon: 'hourglass_empty' });
+        navItems.push({ view: View.SETTLEMENT, label: 'Settlements', icon: 'payments' });
+        navItems.push({ view: View.SETTINGS, label: 'Settings', icon: 'settings' });
+    } else if (hasAccess) {
+        navItems.push({ view: View.SCAN_COUPON, label: 'Scan Coupon', icon: 'qr_code_scanner' });
+        navItems.push({ view: View.VENDOR_HISTORY, label: 'My Scanned', icon: 'restaurant' });
+        navItems.push({ view: View.PROFILE, label: 'My Profile', icon: 'profile' });
+    }
 
     const getIcon = (iconName: string) => {
         const iconMap: Record<string, React.ReactElement> = {
@@ -141,8 +152,10 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onNavigate, onLogout, cl
             <div className="p-4 border-t border-slate-700 space-y-3">
                 <button
                     onClick={() => onNavigate(View.PROFILE)}
-                    className={`w-full text-left px-4 py-3 rounded-lg text-slate-300 hover:bg-slate-700 hover:text-white transition-all flex items-center gap-3 ${isCollapsed ? 'justify-center' : ''
-                        }`}
+                    className={`w-full text-left px-4 py-3 rounded-lg transition-all flex items-center gap-3 ${currentView === View.PROFILE
+                        ? 'bg-slate-700 text-white shadow-inner'
+                        : 'text-slate-300 hover:bg-slate-700 hover:text-white'
+                        } ${isCollapsed ? 'justify-center' : ''}`}
                     title={isCollapsed ? 'Profile' : ''}
                 >
                     <span className="flex-shrink-0">{getIcon('profile')}</span>

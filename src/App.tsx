@@ -16,6 +16,7 @@ import ScanCoupon from './pages/ScanCoupon';
 import ResetPassword from './pages/ResetPassword';
 import { supabase } from './supabaseClient';
 import SettingsService from './utils/settingsService';
+import VendorHistory from './pages/VendorHistory';
 
 const App: React.FC = () => {
     const [currentView, setCurrentView] = useState<View>(View.LANDING);
@@ -25,6 +26,7 @@ const App: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [selectedCouponIds, setSelectedCouponIds] = useState<string[]>([]);
+    const [userProfile, setUserProfile] = useState<any>(null);
 
     useEffect(() => {
         initializeApp();
@@ -64,17 +66,65 @@ const App: React.FC = () => {
 
             if (data.session) {
                 setIsLoggedIn(true);
-                // If we're on a public landing/login page, go to dashboard. 
-                // Otherwise keep the currentView (e.g. if we clicked "View All" on landing)
-                setCurrentView(prev => (prev === View.LANDING || prev === View.LOGIN) ? View.DASHBOARD : prev);
+                
+                // Fetch profile to check access and role
+                let { data: profile, error: profileError } = await supabase
+                    .from('profiles')
+                    .select('*')
+                    .eq('user_id', data.session.user.id)
+                    .maybeSingle();
+                
+                // If profile doesn't exist, create one
+                if (!profile && !profileError) {
+                    const { data: newProfile, error: createError } = await supabase
+                        .from('profiles')
+                        .insert([
+                            { 
+                                user_id: data.session.user.id, 
+                                email: data.session.user.email,
+                                is_admin: false,
+                                access: false
+                            }
+                        ])
+                        .select()
+                        .maybeSingle();
+                    
+                    if (!createError) {
+                        profile = newProfile;
+                    }
+                }
+                
+                setUserProfile(profile);
+
+                // If we're on a public landing/login page, go to dashboard or scan
+                if (currentView === View.LANDING || currentView === View.LOGIN) {
+                    if (profile?.is_admin) {
+                        setCurrentView(View.DASHBOARD);
+                    } else if (profile?.access) {
+                        setCurrentView(View.SCAN_COUPON);
+                    } else {
+                        setCurrentView(View.PROFILE); // No access, show profile
+                    }
+                }
             } else {
                 setIsLoggedIn(false);
-                // Keep the current view if it's already set (e.g. View.ISSUED_HISTORY for redirect)
             }
         } catch (error) {
             console.error('Auth check failed:', error);
             const message = error instanceof Error ? error.message : 'Unable to connect to authentication service';
             throw new Error(message);
+        }
+    };
+
+    const refreshProfile = async () => {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+            const { data: profile } = await supabase
+                .from('profiles')
+                .select('*')
+                .eq('user_id', user.id)
+                .maybeSingle();
+            setUserProfile(profile);
         }
     };
 
@@ -124,7 +174,8 @@ const App: React.FC = () => {
                 issueDate: row.issue_date || '',
                 validTill: row.valid_till || '',
                 created_at: row.created_at,
-                couponImageUrl: row.coupon_image_url
+                couponImageUrl: row.coupon_image_url,
+                received_by: row.received_by
             }));
 
             setEmployees(transformed);
@@ -158,6 +209,10 @@ const App: React.FC = () => {
 
     const handleNavigateToIssuedHistory = () => {
         setCurrentView(View.ISSUED_HISTORY);
+    };
+
+    const handleNavigateToVendorHistory = () => {
+        setCurrentView(View.VENDOR_HISTORY);
     };
 
     const handleNavigateToPending = () => {
@@ -237,7 +292,7 @@ const App: React.FC = () => {
 
     return (
         <div className="flex flex-col desktop:flex-row h-screen w-full">
-            <Sidebar currentView={currentView} onNavigate={handleNavigate} onLogout={handleLogout} className="hidden desktop:block" />
+            <Sidebar currentView={currentView} onNavigate={handleNavigate} onLogout={handleLogout} userProfile={userProfile} className="hidden desktop:block" />
             <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden w-full">
                 <MobileHeader onNavigate={handleNavigate} onLogout={handleLogout} />
                 <main className="flex-1 overflow-y-auto bg-slate-50 pb-20 desktop:pb-0 w-full">
@@ -257,6 +312,14 @@ const App: React.FC = () => {
                             onSelectCoupon={() => setCurrentView(View.PREVIEW)}
                             onNavigateToPrint={handleBatchPrintNavigation}
                             onRefresh={loadEmployees}
+                        />
+                    )}
+                    {currentView === View.VENDOR_HISTORY && settings && (
+                        <VendorHistory
+                            employees={employees}
+                            settings={settings}
+                            onRefresh={loadEmployees}
+                            userProfile={userProfile}
                         />
                     )}
                     {currentView === View.PENDING && settings && (
@@ -289,16 +352,20 @@ const App: React.FC = () => {
                                 setSettings(updatedSettings);
                                 loadSettings();
                             }}
+                            onRefresh={refreshProfile}
                         />
                     )}
                     {currentView === View.PROFILE && (
-                        <Profile />
+                        <Profile onRefresh={refreshProfile} />
                     )}
                     {currentView === View.SCAN_COUPON && (
-                        <ScanCoupon onRefresh={loadEmployees} />
+                        <ScanCoupon 
+                            onRefresh={loadEmployees} 
+                            onNavigateToHistory={handleNavigateToVendorHistory}
+                        />
                     )}
                 </main>
-                <MobileFooter currentView={currentView} onNavigate={handleNavigate} />
+                <MobileFooter currentView={currentView} onNavigate={handleNavigate} userProfile={userProfile} />
             </div>
         </div>
     );

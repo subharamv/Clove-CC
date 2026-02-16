@@ -76,7 +76,17 @@ const Pending: React.FC<PendingProps> = ({ employees, settings, onSelectCoupon, 
 
         let matchesDate = true;
         if (dateFilterType !== 'all' && startDate && endDate) {
-            const couponDate = emp.issueDate ? new Date(emp.issueDate.split('/').reverse().join('-')).toISOString().split('T')[0] : emp.created_at?.split('T')[0] || '';
+            let couponDate = '';
+            if (emp.issueDate) {
+                // Handle both DD/MM/YYYY and YYYY-MM-DD
+                if (emp.issueDate.includes('/')) {
+                    couponDate = emp.issueDate.split('/').reverse().join('-');
+                } else {
+                    couponDate = emp.issueDate;
+                }
+            } else {
+                couponDate = emp.created_at?.split('T')[0] || '';
+            }
             matchesDate = couponDate >= startDate && couponDate <= endDate;
         }
 

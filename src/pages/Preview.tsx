@@ -180,7 +180,17 @@ const Preview: React.FC<PreviewProps> = ({ employees, settings, onUpdateEmployee
     // Date filtering
     let matchesDate = true;
     if (dateFilterType !== 'all' && startDate && endDate) {
-      const couponDate = emp.issueDate ? new Date(emp.issueDate.split('/').reverse().join('-')).toISOString().split('T')[0] : emp.created_at?.split('T')[0] || '';
+      let couponDate = '';
+      if (emp.issueDate) {
+        // Handle both DD/MM/YYYY and YYYY-MM-DD
+        if (emp.issueDate.includes('/')) {
+          couponDate = emp.issueDate.split('/').reverse().join('-');
+        } else {
+          couponDate = emp.issueDate;
+        }
+      } else {
+        couponDate = emp.created_at?.split('T')[0] || '';
+      }
       matchesDate = couponDate >= startDate && couponDate <= endDate;
     }
 
@@ -591,25 +601,14 @@ const Preview: React.FC<PreviewProps> = ({ employees, settings, onUpdateEmployee
             margin: 0;
           }
           
-          html, body {
-            margin: 0 !important;
-            padding: 0 !important;
-            height: 100% !important;
-            width: 100% !important;
-            overflow: visible !important;
+          /* Standard visibility trick for reliable printing in complex layouts */
+          body * {
+            visibility: hidden !important;
           }
 
-          body * { 
-            visibility: hidden; 
-          }
-          
-          #coupon-print-area, #coupon-print-area *,
-          #batch-print-area, #batch-print-area * { 
-            visibility: visible; 
-          }
-
-          .no-print, aside, header, .sidebar-content {
-            display: none !important;
+          #batch-print-area, #batch-print-area *,
+          #coupon-print-area, #coupon-print-area * {
+            visibility: visible !important;
           }
 
           #batch-print-area, #coupon-print-area {
@@ -617,38 +616,48 @@ const Preview: React.FC<PreviewProps> = ({ employees, settings, onUpdateEmployee
             left: 0 !important;
             top: 0 !important;
             width: 210mm !important;
+            display: block !important;
+            background: white !important;
+            z-index: 99999 !important;
+          }
+
+          /* Force all parent containers to allow content to flow/spill over multiple pages */
+          html, body, #root, [data-main-preview], main, div {
+            overflow: visible !important;
+            height: auto !important;
+            min-height: 0 !important;
+            position: static !important;
             margin: 0 !important;
             padding: 0 !important;
-            background: white !important;
-            z-index: 9999;
           }
 
           .page-container {
             width: 210mm !important;
             height: 297mm !important;
-            max-width: none !important;
+            page-break-after: always !important;
+            page-break-inside: avoid !important;
+            display: block !important;
+            position: relative !important;
             margin: 0 !important;
             padding: 0 !important;
             border: none !important;
-            box-shadow: none !important;
-            page-break-after: always;
-            display: block !important;
-            position: relative !important;
+          }
+
+          .page-container:last-child {
+            page-break-after: avoid !important;
           }
 
           .page-container img {
             width: 100% !important;
-            height: auto !important;
+            height: 100% !important;
+            object-fit: contain !important;
             display: block !important;
-            image-rendering: -webkit-optimize-contrast;
-            image-rendering: crisp-edges;
           }
 
-          #coupon-print-area canvas {
-            width: 100% !important;
-            height: auto !important;
-            border-radius: 0 !important;
-            image-rendering: -webkit-optimize-contrast;
+          /* Hide header/footer items if browser tries to add them */
+          header, footer, nav, .no-print {
+            display: none !important;
+            visibility: hidden !important;
           }
         }
       `}</style>

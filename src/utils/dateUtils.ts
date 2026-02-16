@@ -50,9 +50,10 @@ export function parseDateFromCSV(dateString: string): string | null {
                 const date = new Date(year, month - 1, day);
                 // Check if the date is valid (getMonth returns 0-11, so we check against month-1)
                 if (date.getFullYear() === year && date.getMonth() === month - 1 && date.getDate() === day) {
-                    // Return in YYYY-MM-DD format
-                    const isoString = date.toISOString().split('T')[0];
-                    return isoString;
+                    // Return in YYYY-MM-DD format using local components to avoid timezone shift
+                    const m = String(month).padStart(2, '0');
+                    const d = String(day).padStart(2, '0');
+                    return `${year}-${m}-${d}`;
                 }
             } catch (e) {
                 continue;
@@ -86,21 +87,57 @@ export function parseDateFromCSV(dateString: string): string | null {
 export function formatDateToISO(date: string | Date): string {
     if (typeof date === 'string') {
         const parsed = parseDateFromCSV(date);
-        return parsed || new Date().toISOString().split('T')[0];
+        return parsed || formatDateToISO(new Date());
     }
 
     if (date instanceof Date) {
-        return date.toISOString().split('T')[0];
+        const y = date.getFullYear();
+        const m = String(date.getMonth() + 1).padStart(2, '0');
+        const d = String(date.getDate()).padStart(2, '0');
+        return `${y}-${m}-${d}`;
     }
 
-    return new Date().toISOString().split('T')[0];
+    return formatDateToISO(new Date());
 }
 
 /**
  * Get date range for validity period in YYYY-MM-DD format
  */
 export function getValidityDate(startDate: string, days: number): string {
-    const date = new Date(startDate);
+    // Parse the start date components manually to avoid timezone issues
+    let year, month, day;
+    const parts = startDate.split(/[-/]/);
+    
+    if (parts.length === 3) {
+        if (parts[0].length === 4) { // YYYY-MM-DD
+            year = parseInt(parts[0], 10);
+            month = parseInt(parts[1], 10);
+            day = parseInt(parts[2], 10);
+        } else if (parts[2].length === 4) { // DD-MM-YYYY or MM-DD-YYYY
+            // Assume DD-MM-YYYY as per parseDateFromCSV default for 3 parts
+            day = parseInt(parts[0], 10);
+            month = parseInt(parts[1], 10);
+            year = parseInt(parts[2], 10);
+        } else {
+            // Fallback
+            const d = new Date(startDate);
+            year = d.getFullYear();
+            month = d.getMonth() + 1;
+            day = d.getDate();
+        }
+    } else {
+        const d = new Date(startDate);
+        year = d.getFullYear();
+        month = d.getMonth() + 1;
+        day = d.getDate();
+    }
+    
+    // Create date using local components
+    const date = new Date(year, month - 1, day);
     date.setDate(date.getDate() + days);
-    return date.toISOString().split('T')[0];
+    
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d_str = String(date.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d_str}`;
 }
