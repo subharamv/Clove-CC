@@ -1,0 +1,85 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+html {
+    scroll-behavior: smooth;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+        'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+        sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+@keyframes blob {
+
+    0%,
+    100% {
+        transform: translate(0, 0) scale(1);
+    }
+
+    33% {
+        transform: translate(30px, -50px) scale(1.1);
+    }
+
+    66% {
+        transform: translate(-20px, 20px) scale(0.9);
+    }
+}
+
+.animate-blob {
+    animation: blob 7s infinite;
+}
+
+.animation-delay-2000 {
+    animation-delay: 2s;
+}
+
+.animation-delay-4000 {
+    animation-delay: 4s;
+}
+
+.navy-900 {
+    background-color: #0f172a;
+}
+
+.navy-800 {
+    background-color: #1e293b;
+}
+
+.navy-700 {
+    background-color: #334155;
+}
+
+/* Mobile responsive utilities */
+@media (max-width: 1024px) {
+
+    /* Adjust main content padding for footer nav on mobile */
+    main {
+        padding-bottom: 80px;
+    }
+}
+
+@media (max-width: 640px) {
+
+    /* Ensure touch-friendly targets */
+    button,
+    a {
+        min-height: 44px;
+        min-width: 44px;
+    }
+
+    /* Better spacing on small screens */
+    .max-w-4xl {
+        padding: 1rem;
+    }
+}
