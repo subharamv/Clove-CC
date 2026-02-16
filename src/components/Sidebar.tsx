@@ -16,7 +16,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onNavigate, onLogout, cl
     const hasAccess = userProfile?.access;
 
     const navItems = [];
-    
+
     if (isAdmin) {
         navItems.push({ view: View.DASHBOARD, label: 'Dashboard', icon: 'card_giftcard' });
         navItems.push({ view: View.SCAN_COUPON, label: 'Scan Coupon', icon: 'qr_code_scanner' });
@@ -107,8 +107,8 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onNavigate, onLogout, cl
                 <div className="flex items-center justify-between">
                     {!isCollapsed && (
                         <div className="flex items-center gap-3 flex-1">
-                            <div className="w-10 h-10 bg-orange-600 rounded-lg flex items-center justify-center font-bold text-lg flex-shrink-0">
-                                🍽️
+                            <div className="w-10 h-10 bg-whiterounded-lg flex items-center justify-center font-bold text-lg flex-shrink-0">
+                                <img src="https://clovetech.com/wp-content/uploads/2025/04/favicon.png" alt="Clovians" className="w-8 h-8 rounded-lg" />
                             </div>
                             <div>
                                 <h1 className="font-bold text-lg leading-tight">Clovians</h1>

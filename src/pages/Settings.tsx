@@ -19,10 +19,13 @@ interface SettingsProps {
   settings: SystemSettings;
   onSaveSettings: (settings: SystemSettings) => void;
   onRefresh?: () => void;
+  userProfile?: any;
 }
 
-const Settings: React.FC<SettingsProps> = ({ settings, onSaveSettings, onRefresh }) => {
+const Settings: React.FC<SettingsProps> = ({ settings, onSaveSettings, onRefresh, userProfile }) => {
   const [activeTab, setActiveTab] = useState<'serial' | 'coupons' | 'template' | 'users'>('serial');
+  
+  if (!userProfile?.is_admin) return null;
   const [formData, setFormData] = useState<SystemSettings>({
     ...settings,
     backgroundTemplate: settings.backgroundTemplate || '',

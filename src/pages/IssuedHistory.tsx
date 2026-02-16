@@ -21,9 +21,11 @@ interface IssuedHistoryProps {
     onSelectCoupon: (employee: Employee) => void;
     onNavigateToPrint?: (selectedIds: string[]) => void;
     onRefresh?: () => Promise<void> | void;
+    userProfile?: any;
 }
 
-const IssuedHistory: React.FC<IssuedHistoryProps> = ({ employees, settings, onSelectCoupon, onNavigateToPrint, onRefresh }) => {
+const IssuedHistory: React.FC<IssuedHistoryProps> = ({ employees, settings, onSelectCoupon, onNavigateToPrint, onRefresh, userProfile }) => {
+    if (!userProfile?.is_admin) return null;
     const [templateUrl, setTemplateUrl] = useState<string>(DEFAULT_TEMPLATE);
     const [search, setSearch] = useState('');
     const [filterStatus, setFilterStatus] = useState<CouponStatus | 'ALL'>('ALL');

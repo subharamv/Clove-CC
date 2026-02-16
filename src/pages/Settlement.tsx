@@ -7,9 +7,11 @@ import { formatDateToDDMMYYYY } from '../utils/dateFormatUtils';
 interface SettlementProps {
   employees: Employee[];
   onUpdateEmployees?: (employees: Employee[]) => void;
+  userProfile?: any;
 }
 
-const Settlement: React.FC<SettlementProps> = ({ employees, onUpdateEmployees }) => {
+const Settlement: React.FC<SettlementProps> = ({ employees, onUpdateEmployees, userProfile }) => {
+  if (!userProfile?.is_admin) return null;
   const [view, setView] = useState<'NEW' | 'HISTORY'>('NEW');
   const [settlements, setSettlements] = useState<SettlementType[]>([]);
   const [loading, setLoading] = useState(false);

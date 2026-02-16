@@ -19,9 +19,11 @@ interface PendingProps {
     onSelectCoupon: (employee: Employee) => void;
     onNavigateToPrint?: (selectedIds: string[]) => void;
     onRefresh?: () => Promise<void> | void;
+    userProfile?: any;
 }
 
-const Pending: React.FC<PendingProps> = ({ employees, settings, onSelectCoupon, onNavigateToPrint, onRefresh }) => {
+const Pending: React.FC<PendingProps> = ({ employees, settings, onSelectCoupon, onNavigateToPrint, onRefresh, userProfile }) => {
+    if (!userProfile?.is_admin) return null;
     const [templateUrl, setTemplateUrl] = useState<string>(DEFAULT_TEMPLATE);
     const [search, setSearch] = useState('');
     const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');

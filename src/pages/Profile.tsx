@@ -13,10 +13,11 @@ interface User {
 
 interface ProfileProps {
     onRefresh?: () => void;
+    userProfile?: any;
 }
 
-const Profile: React.FC<ProfileProps> = ({ onRefresh }) => {
-    const [currentUserProfile, setCurrentUserProfile] = useState<any>(null);
+const Profile: React.FC<ProfileProps> = ({ onRefresh, userProfile }) => {
+    const [currentUserProfile, setCurrentUserProfile] = useState<any>(userProfile);
     const [users, setUsers] = useState<User[]>([]);
     const [loadingUsers, setLoadingUsers] = useState(false);
     const [inviteEmail, setInviteEmail] = useState('');
@@ -27,9 +28,13 @@ const Profile: React.FC<ProfileProps> = ({ onRefresh }) => {
     const [actionLoading, setActionLoading] = useState<string | null>(null);
 
     useEffect(() => {
-        fetchCurrentUser();
+        if (!userProfile) {
+            fetchCurrentUser();
+        } else {
+            setCurrentUserProfile(userProfile);
+        }
         fetchUsers();
-    }, []);
+    }, [userProfile]);
 
     const fetchCurrentUser = async () => {
         const { data: { user } } = await supabase.auth.getUser();

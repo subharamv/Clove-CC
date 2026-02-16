@@ -13,6 +13,7 @@ interface DashboardProps {
   onNavigateToPreview: () => void;
   onNavigateToIssuedHistory?: () => void;
   onNavigateToPending?: () => void;
+  userProfile?: any;
 }
 
 const Dashboard: React.FC<DashboardProps> = ({
@@ -20,8 +21,10 @@ const Dashboard: React.FC<DashboardProps> = ({
   settings,
   onNavigateToPreview,
   onNavigateToIssuedHistory,
-  onNavigateToPending
+  onNavigateToPending,
+  userProfile
 }) => {
+  if (!userProfile?.is_admin) return null;
   const [search, setSearch] = useState('');
   const [uploading, setUploading] = useState(false);
   const [dragActive, setDragActive] = useState(false);

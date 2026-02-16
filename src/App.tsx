@@ -189,6 +189,23 @@ const App: React.FC = () => {
         if (view !== View.PREVIEW) {
             setSelectedCouponIds([]);
         }
+
+        // Restrict access for non-admins
+        if (!userProfile?.is_admin) {
+            const adminViews = [
+                View.DASHBOARD,
+                View.ISSUED_HISTORY,
+                View.PENDING,
+                View.SETTLEMENT,
+                View.SETTINGS
+            ];
+            if (adminViews.includes(view)) {
+                // If they have access, send to scan coupon, else profile
+                setCurrentView(userProfile?.access ? View.SCAN_COUPON : View.PROFILE);
+                return;
+            }
+        }
+
         setCurrentView(view);
     };
 
@@ -294,7 +311,7 @@ const App: React.FC = () => {
         <div className="flex flex-col desktop:flex-row h-screen w-full">
             <Sidebar currentView={currentView} onNavigate={handleNavigate} onLogout={handleLogout} userProfile={userProfile} className="hidden desktop:block" />
             <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden w-full">
-                <MobileHeader onNavigate={handleNavigate} onLogout={handleLogout} />
+                <MobileHeader onNavigate={handleNavigate} onLogout={handleLogout} userProfile={userProfile} />
                 <main className="flex-1 overflow-y-auto bg-slate-50 pb-20 desktop:pb-0 w-full">
                     {currentView === View.DASHBOARD && settings && (
                         <Dashboard
@@ -303,6 +320,7 @@ const App: React.FC = () => {
                             onNavigateToPreview={handleNavigateToPreview}
                             onNavigateToIssuedHistory={handleNavigateToIssuedHistory}
                             onNavigateToPending={handleNavigateToPending}
+                            userProfile={userProfile}
                         />
                     )}
                     {currentView === View.ISSUED_HISTORY && settings && (
@@ -312,6 +330,7 @@ const App: React.FC = () => {
                             onSelectCoupon={() => setCurrentView(View.PREVIEW)}
                             onNavigateToPrint={handleBatchPrintNavigation}
                             onRefresh={loadEmployees}
+                            userProfile={userProfile}
                         />
                     )}
                     {currentView === View.VENDOR_HISTORY && settings && (
@@ -329,12 +348,14 @@ const App: React.FC = () => {
                             onSelectCoupon={() => setCurrentView(View.PREVIEW)}
                             onNavigateToPrint={handleBatchPrintNavigation}
                             onRefresh={loadEmployees}
+                            userProfile={userProfile}
                         />
                     )}
                     {currentView === View.SETTLEMENT && settings && (
                         <Settlement
                             employees={employees}
                             onUpdateEmployees={setEmployees}
+                            userProfile={userProfile}
                         />
                     )}
                     {currentView === View.PREVIEW && settings && (
@@ -353,10 +374,11 @@ const App: React.FC = () => {
                                 loadSettings();
                             }}
                             onRefresh={refreshProfile}
+                            userProfile={userProfile}
                         />
                     )}
                     {currentView === View.PROFILE && (
-                        <Profile onRefresh={refreshProfile} />
+                        <Profile onRefresh={refreshProfile} userProfile={userProfile} />
                     )}
                     {currentView === View.SCAN_COUPON && (
                         <ScanCoupon 
