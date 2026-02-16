@@ -60,7 +60,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
           {/* Header */}
           <div className="mb-8 text-center">
             <div className="inline-flex items-center justify-center w-24 h-24 p-2 mb-2 bg-gradient-to-br from-orange-500 to-red-600 rounded-xl mb-4">
-              <svg xmlns="http://www.w3.org/2000/svg" class="Clove_Logo" width="8em" viewBox="0 0 112.918 40">
+              <svg xmlns="http://www.w3.org/2000/svg" className="Clove_Logo" width="8em" viewBox="0 0 112.918 40">
                 <g id="Clove_Logo_cloe" data-name="Clove Logo" transform="translate(-0.749 -1)">
                   <path d="M73.807,11.411a13.36,13.36,0,0,0-1.871-4.367,13.516,13.516,0,0,0-3.822-3.822,13.421,13.421,0,0,0-14.774,0,13.527,13.527,0,0,0-3.822,3.822,13.452,13.452,0,0,0-2.214,7.387,13.42,13.42,0,0,0,6.036,11.206,13.359,13.359,0,0,0,7.367,2.215l.021,0,.021,0a13.352,13.352,0,0,0,7.366-2.215,13.5,13.5,0,0,0,3.822-3.822,13.417,13.417,0,0,0,1.871-10.4m-13.079,10.4H60.7a7.386,7.386,0,1,1,7.413-7.392v.013a7.385,7.385,0,0,1-7.36,7.378Z" transform="translate(-7.759 -0.001)" fill="#fff"></path>
                   <path d="M33.753,21.816V1.008H27.714V27.853H41.089L42.7,21.816Z" transform="translate(-4.494 -0.001)" fill="#fff"></path>
