@@ -13,6 +13,8 @@ interface DashboardProps {
   onNavigateToPreview: () => void;
   onNavigateToIssuedHistory?: () => void;
   onNavigateToPending?: () => void;
+  onNavigateToPrint?: (ids: string[]) => void;
+  onRefresh?: () => Promise<void> | void;
   userProfile?: any;
 }
 
@@ -22,6 +24,8 @@ const Dashboard: React.FC<DashboardProps> = ({
   onNavigateToPreview,
   onNavigateToIssuedHistory,
   onNavigateToPending,
+  onNavigateToPrint,
+  onRefresh,
   userProfile
 }) => {
   if (!userProfile?.is_admin) return null;
@@ -107,7 +111,9 @@ const Dashboard: React.FC<DashboardProps> = ({
 
       alert('Selected coupons marked as received successfully!');
       setSelectedRecentCoupons(new Set());
-      // dashboard doesn't have onRefresh, usually it's handled by parent re-fetching employees
+      if (onRefresh) {
+        onRefresh();
+      }
     } catch (error) {
       console.error('Error in bulk update:', error);
       alert('Failed to update coupons');
@@ -301,6 +307,11 @@ const Dashboard: React.FC<DashboardProps> = ({
       setShowMappingModal(false);
       setShowSuccessModal(true);
       setSearch('');
+
+      // Refresh parent state to show new coupons in realtime
+      if (onRefresh) {
+        onRefresh();
+      }
     } catch (err: any) {
       console.error('Error uploading coupons:', err);
       alert('Upload failed: ' + err.message);
@@ -484,6 +495,9 @@ const Dashboard: React.FC<DashboardProps> = ({
       setShowSuccessModal(true);
       setSingleCoupon({ name: '', empId: '', otHours: 0, issueDate: formatDateToISO(new Date()), couponAmountId: '' });
       setShowSingleCoupon(false);
+      if (onRefresh) {
+        onRefresh();
+      }
     } catch (err: any) {
       console.error('Error creating coupon:', err);
       alert('Failed to create coupon: ' + err.message);
@@ -503,6 +517,26 @@ const Dashboard: React.FC<DashboardProps> = ({
           .select-cell { width: 48px; }
           .employee-cell { width: 60%; }
           .status-cell { width: 30%; }
+        }
+        @media (max-width: 546px) {
+          .min-h-screen { padding: 0.75rem !important; }
+          .text-4xl { font-size: 1.5rem !important; }
+          .text-xl { font-size: 1rem !important; }
+          .p-8 { padding: 0.75rem !important; }
+          .p-10 { padding: 1rem !important; }
+          .rounded-\[2rem\] { border-radius: 1rem !important; }
+          .gap-6 { gap: 0.5rem !important; }
+          .grid-cols-2 { gap: 0.5rem !important; }
+          .text-lg { font-size: 0.85rem !important; }
+          .text-sm { font-size: 0.75rem !important; }
+          .text-xs { font-size: 0.65rem !important; }
+          .issue-header { flex-direction: column !important; align-items: flex-start !important; gap: 0.75rem !important; }
+          .issue-buttons { width: 100% !important; flex-wrap: wrap !important; gap: 0.4rem !important; }
+          .issue-buttons button { flex: 1 1 calc(50% - 0.4rem) !important; min-width: 120px !important; justify-content: center !important; padding: 0.6rem 0.4rem !important; font-size: 0.7rem !important; }
+          .issue-buttons button img, .issue-buttons button svg { margin-right: 0.2rem !important; width: 16px !important; height: 16px !important; }
+          .select-cell { width: 36px !important; padding-left: 0.4rem !important; padding-right: 0.4rem !important; }
+          .employee-cell { width: auto !important; }
+          .status-cell { width: 70px !important; padding-left: 0.4rem !important; padding-right: 0.4rem !important; }
         }
         .mobile-only { display: none; }
       `}</style>
@@ -581,13 +615,13 @@ const Dashboard: React.FC<DashboardProps> = ({
 
       {/* CSV Upload Area */}
       <section className="bg-white p-10 rounded-3xl shadow-sm border border-slate-100">
-        <div className="mb-8 flex justify-between items-center">
+        <div className="mb-8 flex justify-between items-center issue-header">
           <div>
             <h2 className="text-xl font-bold text-slate-900">Issue Coupons</h2>
             <p className="text-slate-500 text-sm">Upload employee CSV to bulk-issue coupons</p>
           </div>
 
-          <div className="flex gap-3">
+          <div className="flex gap-3 issue-buttons">
             <button
               onClick={downloadCSVTTemplate}
               className="px-6 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-bold shadow-lg shadow-emerald-100 transition flex items-center gap-1"
@@ -1020,7 +1054,11 @@ const Dashboard: React.FC<DashboardProps> = ({
                   <button
                     onClick={() => {
                       setShowSuccessModal(false);
-                      onNavigateToPreview();
+                      if (onNavigateToPrint && lastUploadedCoupons.length > 0) {
+                        onNavigateToPrint(lastUploadedCoupons.map(c => c.id));
+                      } else {
+                        onNavigateToPreview();
+                      }
                     }}
                     className="w-full py-5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-bold shadow-xl shadow-indigo-100 transition-all hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-3"
                   >

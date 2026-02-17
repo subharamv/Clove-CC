@@ -21,6 +21,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onNavigate, onLogout, cl
         navItems.push({ view: View.DASHBOARD, label: 'Dashboard', icon: 'card_giftcard' });
         navItems.push({ view: View.SCAN_COUPON, label: 'Scan Coupon', icon: 'qr_code_scanner' });
         navItems.push({ view: View.ISSUED_HISTORY, label: 'Issued History', icon: 'history' });
+        navItems.push({ view: View.PREVIEW, label: 'Batch Print', icon: 'print' });
         navItems.push({ view: View.VENDOR_HISTORY, label: 'Received History', icon: 'restaurant' });
         navItems.push({ view: View.PENDING, label: 'Pending Review', icon: 'hourglass_empty' });
         navItems.push({ view: View.SETTLEMENT, label: 'Settlements', icon: 'payments' });
@@ -56,6 +57,11 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onNavigate, onLogout, cl
             history: (
                 <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
                     <path d="M9 11H7v2h2zm4 0h-2v2h2zm4 0h-2v2h2zm2-7h-1V2h-2v2H8V2H6v2H5c-1.11 0-1.99.9-1.99 2L3 20c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 16H5V9h14v11z" />
+                </svg>
+            ),
+            print: (
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
                 </svg>
             ),
             hourglass_empty: (

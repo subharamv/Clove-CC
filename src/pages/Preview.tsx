@@ -5,6 +5,7 @@ import { supabase } from '../supabaseClient';
 import { getTemplateImageUrl, DEFAULT_TEMPLATE } from '../imageUtils';
 import { renderCoupon, renderMultipleCouponsA4 } from '../utils/couponRenderer';
 import { formatRupees } from '../utils/currencyUtils';
+import { formatDateToISO } from '../utils/dateUtils';
 import CalendarFilter, { DateFilterType } from '../components/CalendarFilter';
 
 interface PreviewProps {
@@ -12,15 +13,16 @@ interface PreviewProps {
   settings: SystemSettings;
   onUpdateEmployees: (employees: Employee[]) => void;
   selectedIds?: string[];
+  initialBatchMode?: boolean;
 }
 
-const Preview: React.FC<PreviewProps> = ({ employees, settings, onUpdateEmployees, selectedIds }) => {
+const Preview: React.FC<PreviewProps> = ({ employees, settings, onUpdateEmployees, selectedIds, initialBatchMode = false }) => {
   const [search, setSearch] = useState('');
   const [selectedId, setSelectedId] = useState<string>(employees[0]?.id || '');
   const [templateUrl, setTemplateUrl] = useState<string>(DEFAULT_TEMPLATE);
   const [isRendering, setIsRendering] = useState(false);
   const canvasContainerRef = useRef<HTMLDivElement>(null);
-  const [batchPrintMode, setBatchPrintMode] = useState(false);
+  const [batchPrintMode, setBatchPrintMode] = useState(initialBatchMode);
   const [selectedEmployees, setSelectedEmployees] = useState<Set<string>>(new Set());
   const [cardsPerPage, setCardsPerPage] = useState(10);
   const [batchPages, setBatchPages] = useState<string[]>([]);
@@ -182,12 +184,7 @@ const Preview: React.FC<PreviewProps> = ({ employees, settings, onUpdateEmployee
     if (dateFilterType !== 'all' && startDate && endDate) {
       let couponDate = '';
       if (emp.issueDate) {
-        // Handle both DD/MM/YYYY and YYYY-MM-DD
-        if (emp.issueDate.includes('/')) {
-          couponDate = emp.issueDate.split('/').reverse().join('-');
-        } else {
-          couponDate = emp.issueDate;
-        }
+        couponDate = formatDateToISO(emp.issueDate);
       } else {
         couponDate = emp.created_at?.split('T')[0] || '';
       }
@@ -266,21 +263,48 @@ const Preview: React.FC<PreviewProps> = ({ employees, settings, onUpdateEmployee
 
       {/* Sidebar - no-print */}
       <aside data-sidebar className="w-80 bg-white border-r border-slate-200 flex flex-col no-print desktop:h-[calc(100vh-0px)] overflow-hidden">
-        <div className="p-6 border-b border-slate-100 flex justify-between items-center">
-          <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2">
-            <svg className="w-6 h-6 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z" /></svg>
-            Coupon List
+        <div className="p-6 border-b border-slate-100 flex justify-between items-center gap-2">
+          <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2 flex-1 min-w-0">
+            <svg className="w-6 h-6 text-orange-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z" /></svg>
+            <span className="truncate">Coupon List</span>
           </h2>
-          <button
-            onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-            className="desktop:hidden p-2 bg-slate-100 rounded-lg text-slate-600"
-          >
-            {sidebarCollapsed ? (
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M19 9l-7 7-7-7" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"></path></svg>
-            ) : (
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M5 15l7-7 7 7" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"></path></svg>
+          <div className="flex items-center gap-2">
+            {!batchPrintMode && (
+              <button
+                onClick={() => {
+                  setBatchPrintMode(true);
+                  setSidebarCollapsed(false);
+                }}
+                className="p-2 bg-indigo-100 hover:bg-indigo-200 text-indigo-700 rounded-lg transition-all flex items-center gap-2"
+                title="Batch Print"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+                </svg>
+              </button>
             )}
-          </button>
+            {batchPrintMode && (
+              <button
+                onClick={() => setBatchPrintMode(false)}
+                className="p-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition-all flex items-center gap-2"
+                title="Single Print"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                </svg>
+              </button>
+            )}
+            <button
+              onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+              className="desktop:hidden p-2 bg-slate-100 rounded-lg text-slate-600"
+            >
+              {sidebarCollapsed ? (
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M19 9l-7 7-7-7" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"></path></svg>
+              ) : (
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M5 15l7-7 7 7" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"></path></svg>
+              )}
+            </button>
+          </div>
         </div>
 
         <div className="sidebar-content flex-1 overflow-y-auto">
@@ -321,7 +345,7 @@ const Preview: React.FC<PreviewProps> = ({ employees, settings, onUpdateEmployee
               </div>
               <div className="flex gap-2 mb-4">
                 <button
-                  onClick={() => setSelectedEmployees(new Set(employees.map(e => e.id)))}
+                  onClick={() => setSelectedEmployees(new Set(filteredEmployees.map(e => e.id)))}
                   className="flex-1 px-2 py-2 text-xs bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-semibold transition"
                 >
                   All
@@ -351,7 +375,7 @@ const Preview: React.FC<PreviewProps> = ({ employees, settings, onUpdateEmployee
           )}
 
           <div className="p-2 space-y-1">
-            {(batchPrintMode ? employees : filteredEmployees).map(emp => (
+            {filteredEmployees.map(emp => (
               batchPrintMode ? (
                 <button
                   key={emp.id}

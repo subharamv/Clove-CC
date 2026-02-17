@@ -36,6 +36,7 @@ const IssuedHistory: React.FC<IssuedHistoryProps> = ({ employees, settings, onSe
     const [dateFilterType, setDateFilterType] = useState<DateFilterType>('all');
     const [startDate, setStartDate] = useState<string>('');
     const [endDate, setEndDate] = useState<string>('');
+    const [itemsPerPage, setItemsPerPage] = useState(10);
     const [settlementModal, setSettlementModal] = useState<SettlementModal>({
         visible: false,
         settlement: null,
@@ -44,8 +45,6 @@ const IssuedHistory: React.FC<IssuedHistoryProps> = ({ employees, settings, onSe
     });
     const [previewingVoucherId, setPreviewingVoucherId] = useState<string | null>(null);
     const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
-
-    const ITEMS_PER_PAGE = viewMode === 'grid' ? 6 : 10;
 
     const loadTemplateImage = async () => {
         try {
@@ -229,12 +228,7 @@ const IssuedHistory: React.FC<IssuedHistoryProps> = ({ employees, settings, onSe
         if (dateFilterType !== 'all' && startDate && endDate) {
             let couponDate = '';
             if (emp.issueDate) {
-                // Handle both DD/MM/YYYY and YYYY-MM-DD
-                if (emp.issueDate.includes('/')) {
-                    couponDate = emp.issueDate.split('/').reverse().join('-');
-                } else {
-                    couponDate = emp.issueDate;
-                }
+                couponDate = formatDateToISO(emp.issueDate);
             } else {
                 couponDate = emp.created_at?.split('T')[0] || '';
             }
@@ -244,9 +238,9 @@ const IssuedHistory: React.FC<IssuedHistoryProps> = ({ employees, settings, onSe
         return matchesSearch && matchesStatus && matchesDate;
     });
 
-    const totalPages = Math.ceil(filteredEmployees.length / ITEMS_PER_PAGE);
-    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
-    const paginatedEmployees = filteredEmployees.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+    const totalPages = Math.ceil(filteredEmployees.length / itemsPerPage);
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const paginatedEmployees = filteredEmployees.slice(startIndex, startIndex + itemsPerPage);
 
     const toggleSelectForPrint = (id: string) => {
         const newSelected = new Set(selectedForPrint);
@@ -259,10 +253,10 @@ const IssuedHistory: React.FC<IssuedHistoryProps> = ({ employees, settings, onSe
     };
 
     const toggleSelectAll = () => {
-        if (selectedForPrint.size === paginatedEmployees.length) {
+        if (selectedForPrint.size === filteredEmployees.length) {
             setSelectedForPrint(new Set());
         } else {
-            const allIds = paginatedEmployees.map(emp => emp.id);
+            const allIds = filteredEmployees.map(emp => emp.id);
             setSelectedForPrint(new Set(allIds));
         }
     };
@@ -428,6 +422,21 @@ const IssuedHistory: React.FC<IssuedHistoryProps> = ({ employees, settings, onSe
                     .amount-cell { width: 20%; }
                     .action-cell { width: 20%; }
                 }
+                @media (max-width: 546px) {
+                    [data-main-content] { padding: 1rem !important; }
+                    .text-3xl { font-size: 1.25rem !important; }
+                    .text-lg { font-size: 0.9rem !important; }
+                    .text-sm { font-size: 0.8rem !important; }
+                    .text-xs { font-size: 0.7rem !important; }
+                    .px-6 { padding-left: 0.75rem !important; padding-right: 0.75rem !important; }
+                    .py-4 { padding-top: 0.75rem !important; padding-bottom: 0.75rem !important; }
+                    .gap-2 { gap: 0.4rem !important; }
+                    .gap-4 { gap: 0.75rem !important; }
+                    button { font-size: 0.75rem !important; }
+                    .actions-container { flex-wrap: wrap !important; height: auto !important; gap: 0.5rem !important; }
+                    .actions-container button { flex: 1 1 auto !important; min-width: 100px !important; justify-content: center !important; }
+                    .actions-container button:nth-last-child(-n+2) { flex: 0 0 42px !important; min-width: 42px !important; }
+                }
                 .mobile-only { display: none; }
             `}</style>
 
@@ -457,9 +466,26 @@ const IssuedHistory: React.FC<IssuedHistoryProps> = ({ employees, settings, onSe
                             </div>
                         </div>
                         <div className="flex flex-col sm:flex-row gap-4">
-                            <div className="flex-1 min-w-0">
+                            <div className="flex-[2] min-w-0">
                                 <label className="block text-sm font-semibold text-slate-700 mb-2">Calendar Filter</label>
-                                <CalendarFilter onDateRangeChange={handleDateRangeChange} />
+                                <div className="flex gap-2">
+                                    <div className="flex-1">
+                                        <CalendarFilter onDateRangeChange={handleDateRangeChange} />
+                                    </div>
+                                    <div className="w-32 flex-shrink-0">
+                                        <select
+                                            className="w-full px-3 py-2 border border-slate-200 bg-slate-50 rounded-xl text-sm focus:ring-orange-500 focus:border-orange-500 transition h-[42px]"
+                                            value={itemsPerPage}
+                                            onChange={(e) => setItemsPerPage(Number(e.target.value))}
+                                        >
+                                            <option value={10}>10 per page</option>
+                                            <option value={20}>20 per page</option>
+                                            <option value={30}>30 per page</option>
+                                            <option value={50}>50 per page</option>
+                                            <option value={100}>100 per page</option>
+                                        </select>
+                                    </div>
+                                </div>
                             </div>
 
                             <div className="flex-1 min-w-0">
@@ -479,7 +505,21 @@ const IssuedHistory: React.FC<IssuedHistoryProps> = ({ employees, settings, onSe
 
                             <div>
                                 <label className="block text-sm font-semibold text-slate-700 mb-2">Actions</label>
-                                <div className="flex gap-2 h-10">
+                                <div className="flex gap-2 h-10 actions-container">
+                                    <button
+                                        onClick={() => {
+                                            const allVisibleIds = filteredEmployees.map(e => e.id);
+                                            if (onNavigateToPrint) {
+                                                onNavigateToPrint(allVisibleIds);
+                                            }
+                                        }}
+                                        className="px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-bold shadow-sm transition flex items-center gap-2"
+                                    >
+                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+                                        </svg>
+                                        Batch Print
+                                    </button>
                                     <button
                                         onClick={handleExportCSV}
                                         title="Export Filtered Data to CSV"
@@ -796,7 +836,7 @@ const IssuedHistory: React.FC<IssuedHistoryProps> = ({ employees, settings, onSe
                     {filteredEmployees.length > 0 && (
                         <div className="mt-8 flex items-center justify-between bg-white p-6 rounded-2xl border border-slate-200">
                             <div className="text-sm text-slate-600">
-                                Showing <span className="font-semibold">{startIndex + 1}</span> to <span className="font-semibold">{Math.min(startIndex + ITEMS_PER_PAGE, filteredEmployees.length)}</span> of <span className="font-semibold">{filteredEmployees.length}</span> coupons
+                                Showing <span className="font-semibold">{startIndex + 1}</span> to <span className="font-semibold">{Math.min(startIndex + itemsPerPage, filteredEmployees.length)}</span> of <span className="font-semibold">{filteredEmployees.length}</span> coupons
                             </div>
                             <div className="flex gap-2">
                                 <button

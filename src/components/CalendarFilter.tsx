@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { formatDateToDDMMYYYY } from '../utils/dateFormatUtils';
 
 export type DateFilterType = 'all' | 'week' | 'month' | 'custom';
 
@@ -80,7 +81,7 @@ const CalendarFilter: React.FC<CalendarFilterProps> = ({ onDateRangeChange }) =>
             case 'month':
                 return 'This Month';
             case 'custom':
-                return `${startDate} to ${endDate}`;
+                return `${formatDateToDDMMYYYY(startDate)} to ${formatDateToDDMMYYYY(endDate)}`;
             default:
                 return 'All Time';
         }

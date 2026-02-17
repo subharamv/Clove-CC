@@ -27,6 +27,7 @@ const App: React.FC = () => {
     const [error, setError] = useState<string | null>(null);
     const [selectedCouponIds, setSelectedCouponIds] = useState<string[]>([]);
     const [userProfile, setUserProfile] = useState<any>(null);
+    const [isBatchMode, setIsBatchMode] = useState(false);
 
     useEffect(() => {
         initializeApp();
@@ -188,6 +189,9 @@ const App: React.FC = () => {
     const handleNavigate = (view: View) => {
         if (view !== View.PREVIEW) {
             setSelectedCouponIds([]);
+            setIsBatchMode(false);
+        } else {
+            setIsBatchMode(true);
         }
 
         // Restrict access for non-admins
@@ -238,6 +242,7 @@ const App: React.FC = () => {
 
     const handleBatchPrintNavigation = (ids: string[]) => {
         setSelectedCouponIds(ids);
+        setIsBatchMode(true);
         setCurrentView(View.PREVIEW);
     };
 
@@ -320,6 +325,8 @@ const App: React.FC = () => {
                             onNavigateToPreview={handleNavigateToPreview}
                             onNavigateToIssuedHistory={handleNavigateToIssuedHistory}
                             onNavigateToPending={handleNavigateToPending}
+                            onNavigateToPrint={handleBatchPrintNavigation}
+                            onRefresh={loadEmployees}
                             userProfile={userProfile}
                         />
                     )}
@@ -327,7 +334,10 @@ const App: React.FC = () => {
                         <IssuedHistory
                             employees={employees}
                             settings={settings}
-                            onSelectCoupon={() => setCurrentView(View.PREVIEW)}
+                            onSelectCoupon={() => {
+                                setIsBatchMode(false);
+                                setCurrentView(View.PREVIEW);
+                            }}
                             onNavigateToPrint={handleBatchPrintNavigation}
                             onRefresh={loadEmployees}
                             userProfile={userProfile}
@@ -345,7 +355,10 @@ const App: React.FC = () => {
                         <Pending
                             employees={employees}
                             settings={settings}
-                            onSelectCoupon={() => setCurrentView(View.PREVIEW)}
+                            onSelectCoupon={() => {
+                                setIsBatchMode(false);
+                                setCurrentView(View.PREVIEW);
+                            }}
                             onNavigateToPrint={handleBatchPrintNavigation}
                             onRefresh={loadEmployees}
                             userProfile={userProfile}
@@ -364,6 +377,7 @@ const App: React.FC = () => {
                             settings={settings}
                             onUpdateEmployees={setEmployees}
                             selectedIds={selectedCouponIds}
+                            initialBatchMode={isBatchMode}
                         />
                     )}
                     {currentView === View.SETTINGS && settings && (

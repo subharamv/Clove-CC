@@ -4,6 +4,7 @@ import { supabase } from '../supabaseClient';
 import CalendarFilter, { DateFilterType } from '../components/CalendarFilter';
 import { formatDateToDDMMYYYY } from '../utils/dateFormatUtils';
 import { formatRupees } from '../utils/currencyUtils';
+import { formatDateToISO } from '../utils/dateUtils';
 
 interface VendorHistoryProps {
     employees: Employee[];
@@ -107,11 +108,7 @@ const VendorHistory: React.FC<VendorHistoryProps> = ({ employees, settings, onRe
             // For received history, we should probably filter by received_at if available
             // but for now sticking to the issueDate logic or created_at
             if (emp.issueDate) {
-                if (emp.issueDate.includes('/')) {
-                    couponDate = emp.issueDate.split('/').reverse().join('-');
-                } else {
-                    couponDate = emp.issueDate;
-                }
+                couponDate = formatDateToISO(emp.issueDate);
             } else {
                 couponDate = emp.created_at?.split('T')[0] || '';
             }
