@@ -30,7 +30,6 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   global: {
     headers: {
       'X-Client-Info': 'clovians-cafeteria',
-      'Content-Type': 'application/json'
     },
     fetch: (url, options = {}) => {
       const controller = new AbortController();
